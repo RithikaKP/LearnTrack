@@ -1,0 +1,17 @@
+{
+  "testDay1": {
+    "queryDate": "2026-01-27T10:00:00.000Z",
+    "calcDay": 1,
+    "topics": [
+      "trie"
+    ]
+  },
+  "testDay2": {
+    "queryDate": "2026-01-28T10:00:00.000Z",
+    "calcDay": 2,
+    "topics": [
+      "bt",
+      "ls"
+    ]
+  }
+}

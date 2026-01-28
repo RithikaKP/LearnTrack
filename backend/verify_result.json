@@ -1,0 +1,33 @@
+{
+  "queryDate": "2026-01-27T10:00:00.000Z",
+  "dsaStartDate": "2026-01-27T00:00:00.000Z",
+  "topicsFoundPreFilter": [
+    {
+      "name": "trie",
+      "dayNumber": 1
+    },
+    {
+      "name": "bt",
+      "dayNumber": 2
+    },
+    {
+      "name": "ls",
+      "dayNumber": 2
+    }
+  ],
+  "calculatedDayNumber": 1,
+  "finalFilteredList": [
+    "trie"
+  ],
+  "excluded": [
+    {
+      "name": "bt",
+      "day": 2
+    },
+    {
+      "name": "ls",
+      "day": 2
+    }
+  ],
+  "status": "FAILURE"
+}

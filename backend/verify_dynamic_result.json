@@ -1,0 +1,22 @@
+{
+  "day1": {
+    "queryDate": "2026-01-27T10:00:00.000Z",
+    "dayNum": 1,
+    "totalTopicsFound": 3,
+    "completedTopics": [
+      "trie",
+      "bst",
+      "bt"
+    ],
+    "calculatedProgress": "3/3"
+  },
+  "day2": {
+    "queryDate": "2026-01-28T10:00:00.000Z",
+    "dayNum": 2,
+    "totalTopicsFound": 1,
+    "completedTopics": [
+      "ls"
+    ],
+    "calculatedProgress": "1/1"
+  }
+}

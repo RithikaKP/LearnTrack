@@ -1,0 +1,5 @@
+TOPIC DATA:
+Topic: trie, Day: 1, Status: completed, CompletedAtSync: 2026-01-27T07:05:49.779Z, CompletedAtLocal: 27/1/2026, 12:35:49 pm
+Topic: bst, Day: 1, Status: pending, CompletedAtSync: null, CompletedAtLocal: null
+Topic: bt, Day: 2, Status: completed, CompletedAtSync: 2026-01-27T07:15:00.997Z, CompletedAtLocal: 27/1/2026, 12:45:00 pm
+Topic: ls, Day: 2, Status: completed, CompletedAtSync: 2026-01-27T07:15:05.028Z, CompletedAtLocal: 27/1/2026, 12:45:05 pm
