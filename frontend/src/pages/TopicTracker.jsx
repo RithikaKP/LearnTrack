@@ -23,8 +23,8 @@ const TopicTracker = () => {
             if (!user || !subjectId) return;
             try {
                 const [subjectData, topicsData] = await Promise.all([
-                    subjectService.getSubject(subjectId, user.token),
-                    topicService.getTopics(subjectId, user.token)
+                    subjectService.getSubject(subjectId),
+                    topicService.getTopics(subjectId)
                 ]);
                 setSubject(subjectData);
                 setTopics(topicsData);
@@ -46,10 +46,10 @@ const TopicTracker = () => {
                 t._id === topicId ? { ...t, status: newStatus } : t
             ));
 
-            await topicService.updateTopicStatus(topicId, newStatus, user.token);
+            await topicService.updateTopicStatus(topicId, newStatus);
 
             // Refresh subject to get updated counters
-            const updatedSubject = await subjectService.getSubject(subjectId, user.token);
+            const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
         } catch (error) {
             console.error("Status update failed:", error);
@@ -59,13 +59,13 @@ const TopicTracker = () => {
     const handleCreate = async (topicData) => {
         try {
             // Include subjectId in creation
-            const newTopic = await topicService.createTopic({ ...topicData, subjectId }, user.token);
+            const newTopic = await topicService.createTopic({ ...topicData, subjectId });
 
             // Add to list and sort
             setTopics(prev => [...prev, newTopic].sort((a, b) => a.dayNumber - b.dayNumber));
 
             // Refresh subject for counters
-            const updatedSubject = await subjectService.getSubject(subjectId, user.token);
+            const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
             setIsFormOpen(false);
         } catch (error) {
@@ -76,7 +76,7 @@ const TopicTracker = () => {
     const handleUpdate = async (topicData) => {
         if (!editingTopic) return;
         try {
-            const updated = await topicService.updateTopic(editingTopic._id, topicData, user.token);
+            const updated = await topicService.updateTopic(editingTopic._id, topicData);
             setTopics(prev => prev.map(t => t._id === updated._id ? updated : t).sort((a, b) => a.dayNumber - b.dayNumber));
             setEditingTopic(null);
             setIsFormOpen(false);
@@ -88,11 +88,11 @@ const TopicTracker = () => {
     const handleDelete = async (topicId) => {
         if (!window.confirm("Are you sure you want to delete this topic?")) return;
         try {
-            await topicService.deleteTopic(topicId, user.token);
+            await topicService.deleteTopic(topicId);
             setTopics(prev => prev.filter(t => t._id !== topicId));
 
             // Refresh subject counters
-            const updatedSubject = await subjectService.getSubject(subjectId, user.token);
+            const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
         } catch (error) {
             console.error("Delete failed:", error);

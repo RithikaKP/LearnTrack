@@ -26,7 +26,7 @@ const Dashboard = () => {
         if (!user) return;
         setLoading(true);
         try {
-            const stats = await dashboardService.getStats(user.token);
+            const stats = await dashboardService.getStats();
             setData(stats);
         } catch (error) {
             console.error("Failed to fetch dashboard:", error);
@@ -39,7 +39,7 @@ const Dashboard = () => {
         if (!user) return;
         setLoadingDaily(true);
         try {
-            const activity = await dashboardService.getDailyActivity(date.toISOString(), user.token);
+            const activity = await dashboardService.getDailyActivity(date.toISOString());
             setDailyActivity(activity);
         } catch (error) {
             console.error("Failed to fetch daily activity:", error);
@@ -276,8 +276,8 @@ const Dashboard = () => {
                                 <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3 overflow-hidden">
                                     <div
                                         className={`h-1.5 rounded-full ${activity.topicsCompleted.length >= activity.dailyTarget
-                                                ? 'bg-green-500'
-                                                : 'bg-indigo-500'
+                                            ? 'bg-green-500'
+                                            : 'bg-indigo-500'
                                             }`}
                                         style={{ width: `${Math.min((activity.topicsCompleted.length / (activity.dailyTarget || 1)) * 100, 100)}%` }}
                                     ></div>

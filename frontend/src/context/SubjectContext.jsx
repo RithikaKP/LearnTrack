@@ -22,9 +22,7 @@ export const SubjectProvider = ({ children }) => {
     const fetchSubjects = async () => {
         setIsLoading(true);
         try {
-            // Assuming user object has a token, if not we need to handle token storage
-            const token = user.token;
-            const data = await subjectService.getSubjects(token);
+            const data = await subjectService.getSubjects();
             setSubjects(data);
             setError(null);
         } catch (err) {
@@ -37,8 +35,7 @@ export const SubjectProvider = ({ children }) => {
     const addSubject = async (subjectData) => {
         setIsLoading(true);
         try {
-            const token = user.token;
-            const newSubject = await subjectService.createSubject(subjectData, token);
+            const newSubject = await subjectService.createSubject(subjectData);
             setSubjects([newSubject, ...subjects]);
             setError(null);
             return newSubject;
@@ -53,8 +50,7 @@ export const SubjectProvider = ({ children }) => {
     const updateSubject = async (id, subjectData) => {
         setIsLoading(true);
         try {
-            const token = user.token;
-            const updatedSubject = await subjectService.updateSubject(id, subjectData, token);
+            const updatedSubject = await subjectService.updateSubject(id, subjectData);
             setSubjects(subjects.map((sub) => (sub._id === id ? updatedSubject : sub)));
             setError(null);
             return updatedSubject;
@@ -69,8 +65,7 @@ export const SubjectProvider = ({ children }) => {
     const deleteSubject = async (id) => {
         setIsLoading(true);
         try {
-            const token = user.token;
-            await subjectService.deleteSubject(id, token);
+            await subjectService.deleteSubject(id);
             setSubjects(subjects.filter((sub) => sub._id !== id));
             setError(null);
         } catch (err) {

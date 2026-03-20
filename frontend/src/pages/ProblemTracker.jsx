@@ -69,8 +69,8 @@ const ProblemTracker = () => {
         setLoading(true);
         try {
             const [problemsData, statsData] = await Promise.all([
-                problemService.getProblems(filters, user.token),
-                problemService.getStats(user.token)
+                problemService.getProblems(filters),
+                problemService.getStats()
             ]);
             setProblems(problemsData);
             setStats(statsData);
@@ -93,7 +93,7 @@ const ProblemTracker = () => {
     const handleDelete = async (id) => {
         if (window.confirm('Delete this problem?')) {
             try {
-                await problemService.deleteProblem(id, user.token);
+                await problemService.deleteProblem(id);
                 fetchData(); // Refresh list & stats
             } catch (error) {
                 console.error("Delete failed");
@@ -128,9 +128,9 @@ const ProblemTracker = () => {
             };
 
             if (editingProblem) {
-                await problemService.updateProblem(editingProblem._id, payload, user.token);
+                await problemService.updateProblem(editingProblem._id, payload);
             } else {
-                await problemService.createProblem(payload, user.token);
+                await problemService.createProblem(payload);
             }
             setIsModalOpen(false);
             fetchData();

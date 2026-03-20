@@ -1,77 +1,40 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/problems/';
+import api from '../utils/api';
 
 // Get problems with filters
-const getProblems = async (filters, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
+const getProblems = async (filters) => {
+    const response = await api.get('/problems/', {
         params: filters
-    };
-
-    const response = await axios.get(API_URL, config);
+    });
     return response.data;
 };
 
 // Get stats
-const getStats = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(`${API_URL}stats`, config);
+const getStats = async () => {
+    const response = await api.get('/problems/stats');
     return response.data;
 };
 
 // Get revision list
-const getRevisionProblems = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(`${API_URL}revision`, config);
+const getRevisionProblems = async () => {
+    const response = await api.get('/problems/revision');
     return response.data;
 };
 
 // Create problem
-const createProblem = async (problemData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.post(API_URL, problemData, config);
+const createProblem = async (problemData) => {
+    const response = await api.post('/problems/', problemData);
     return response.data;
 };
 
 // Update problem
-const updateProblem = async (id, problemData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.put(API_URL + id, problemData, config);
+const updateProblem = async (id, problemData) => {
+    const response = await api.put('/problems/' + id, problemData);
     return response.data;
 };
 
 // Delete problem
-const deleteProblem = async (id, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.delete(API_URL + id, config);
+const deleteProblem = async (id) => {
+    const response = await api.delete('/problems/' + id);
     return response.data;
 };
 

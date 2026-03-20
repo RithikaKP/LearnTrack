@@ -25,7 +25,7 @@ const PomodoroTimer = () => {
     // Fetch daily stats
     const fetchStats = async () => {
         try {
-            const data = await sessionService.getStats(user.token);
+            const data = await sessionService.getStats();
             setStats(data);
         } catch (error) {
             console.error("Failed to fetch timer stats", error);
@@ -77,15 +77,12 @@ const PomodoroTimer = () => {
             }
             if (mode === 'pomodoro' && !sessionData) {
                 try {
-                    const newSession = await sessionService.createSession(
-                        {
-                            subjectId: selectedSubject,
-                            sessionType: 'pomodoro',
-                            duration: MODES.pomodoro.duration,
-                            startTime: new Date(),
-                        },
-                        user.token
-                    );
+                    const newSession = await sessionService.createSession({
+                        subjectId: selectedSubject,
+                        sessionType: 'pomodoro',
+                        duration: MODES.pomodoro.duration,
+                        startTime: new Date(),
+                    });
                     setSessionData(newSession);
                 } catch (err) {
                     console.error(err);
@@ -117,8 +114,7 @@ const PomodoroTimer = () => {
                 try {
                     await sessionService.completeSession(
                         sessionData._id,
-                        { actualTime: MODES.pomodoro.duration },
-                        user.token
+                        { actualTime: MODES.pomodoro.duration }
                     );
                 } catch (err) {
                     console.error(err);
@@ -150,7 +146,6 @@ const PomodoroTimer = () => {
     };
 
     // Color Maps for Tailwind (Safelist these if needed, or use style)
-    // We'll use inline styles or specific classes to ensure dynamic colors work
     const getColorClass = (color, type) => {
         const map = {
             blue: { bg: 'bg-blue-500', light: 'bg-blue-50', border: 'border-blue-500', ring: 'border-blue-100', text: 'text-blue-600' },

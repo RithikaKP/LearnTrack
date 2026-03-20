@@ -1,29 +1,16 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/dashboard/';
+import api from '../utils/api';
 
 // Get dashboard stats
-const getStats = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(`${API_URL}stats`, config);
+const getStats = async () => {
+    const response = await api.get('/dashboard/stats');
     return response.data;
 };
 
 // Get daily activity
-const getDailyActivity = async (date, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
+const getDailyActivity = async (date) => {
+    const response = await api.get('/dashboard/daily-activity', {
         params: { date }
-    };
-
-    const response = await axios.get(`${API_URL}daily-activity`, config);
+    });
     return response.data;
 };
 

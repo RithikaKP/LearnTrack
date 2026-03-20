@@ -35,7 +35,7 @@ const Notes = () => {
             if (filter === 'pinned') params.isPinned = true;
             if (filter === 'revision') params.isRevision = true;
 
-            const data = await noteService.getNotes(params, user.token);
+            const data = await noteService.getNotes(params);
             setNotes(data);
         } catch (error) {
             console.error("Failed to fetch notes:", error);
@@ -55,7 +55,7 @@ const Notes = () => {
     const handlePin = async (e, id) => {
         e.stopPropagation();
         try {
-            await noteService.togglePin(id, user.token);
+            await noteService.togglePin(id);
             // Optimistic update
             setNotes(prev => prev.map(n => n._id === id ? { ...n, isPinned: !n.isPinned } : n));
             // Re-sort handled by backend usually, but for local update we might want to refresh fully
@@ -70,7 +70,7 @@ const Notes = () => {
         e.stopPropagation();
         if (window.confirm('Delete this note?')) {
             try {
-                await noteService.deleteNote(id, user.token);
+                await noteService.deleteNote(id);
                 setNotes(prev => prev.filter(n => n._id !== id));
             } catch (error) {
                 console.error("Delete failed");
@@ -106,9 +106,9 @@ const Notes = () => {
             };
 
             if (editingNote) {
-                await noteService.updateNote(editingNote._id, payload, user.token);
+                await noteService.updateNote(editingNote._id, payload);
             } else {
-                await noteService.createNote(payload, user.token);
+                await noteService.createNote(payload);
             }
             setIsModalOpen(false);
             fetchNotes();

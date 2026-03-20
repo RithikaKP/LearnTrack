@@ -1,69 +1,32 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/subjects/';
+import api from '../utils/api';
 
 // Create new subject
-const createSubject = async (subjectData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.post(API_URL, subjectData, config);
-
+const createSubject = async (subjectData) => {
+    const response = await api.post('/subjects/', subjectData);
     return response.data;
 };
 
 // Get user subjects
-const getSubjects = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(API_URL, config);
-
+const getSubjects = async () => {
+    const response = await api.get('/subjects/');
     return response.data;
 };
 
 // Get single subject
-const getSubject = async (subjectId, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(API_URL + subjectId, config);
-
+const getSubject = async (subjectId) => {
+    const response = await api.get('/subjects/' + subjectId);
     return response.data;
 };
 
 // Update subject
-const updateSubject = async (subjectId, subjectData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.put(API_URL + subjectId, subjectData, config);
-
+const updateSubject = async (subjectId, subjectData) => {
+    const response = await api.put('/subjects/' + subjectId, subjectData);
     return response.data;
 };
 
 // Delete subject
-const deleteSubject = async (subjectId, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.delete(API_URL + subjectId, config);
-
+const deleteSubject = async (subjectId) => {
+    const response = await api.delete('/subjects/' + subjectId);
     return response.data;
 };
 

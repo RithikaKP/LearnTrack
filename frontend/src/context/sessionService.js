@@ -1,57 +1,28 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/sessions/';
+import api from '../utils/api';
 
 // Create session
-const createSession = async (sessionData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.post(API_URL, sessionData, config);
-
+const createSession = async (sessionData) => {
+    const response = await api.post('/sessions/', sessionData);
     return response.data;
 };
 
 // Complete session
-const completeSession = async (sessionId, sessionData, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.patch(`${API_URL}${sessionId}/complete`, sessionData, config);
-
+const completeSession = async (sessionId, sessionData) => {
+    const response = await api.patch(`/sessions/${sessionId}/complete`, sessionData);
     return response.data;
 };
 
 // Get stats
-const getStats = async (token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    };
-
-    const response = await axios.get(`${API_URL}stats`, config);
-
+const getStats = async () => {
+    const response = await api.get('/sessions/stats');
     return response.data;
 };
 
 // Get sessions with filters
-const getSessions = async (days = 30, limit = 50, token) => {
-    const config = {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
+const getSessions = async (days = 30, limit = 50) => {
+    const response = await api.get('/sessions/', {
         params: { days, limit }
-    };
-
-    const response = await axios.get(API_URL, config);
-
+    });
     return response.data;
 };
 

@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/api";
 
 export const AuthContext = createContext();
 
@@ -11,8 +11,22 @@ export const AuthProvider = ({ children }) => {
     // Check if user is logged in on mount
     useEffect(() => {
         const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-        if (userInfo) {
-            setUser(userInfo);
+        if (userInfo && userInfo.token) {
+            try {
+                // Simple JWT decode to check expiration
+                const payload = JSON.parse(atob(userInfo.token.split('.')[1]));
+                const isExpired = payload.exp * 1000 < Date.now();
+
+                if (isExpired) {
+                    localStorage.removeItem("userInfo");
+                    setUser(null);
+                } else {
+                    setUser(userInfo);
+                }
+            } catch (e) {
+                localStorage.removeItem("userInfo");
+                setUser(null);
+            }
         }
         setLoading(false);
     }, []);
@@ -25,16 +39,9 @@ export const AuthProvider = ({ children }) => {
     const register = async (name, email, password) => {
         try {
             setError(null);
-            const config = {
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            };
-
-            const { data } = await axios.post(
-                "http://localhost:5000/api/auth/register",
-                { name, email, password },
-                config
+            const { data } = await api.post(
+                "/auth/register",
+                { name, email, password }
             );
 
             localStorage.setItem("userInfo", JSON.stringify(data));
@@ -54,16 +61,9 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             setError(null);
-            const config = {
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            };
-
-            const { data } = await axios.post(
-                "http://localhost:5000/api/auth/login",
-                { email, password },
-                config
+            const { data } = await api.post(
+                "/auth/login",
+                { email, password }
             );
 
             localStorage.setItem("userInfo", JSON.stringify(data));
@@ -88,16 +88,9 @@ export const AuthProvider = ({ children }) => {
     // Update preferences
     const updatePreferences = async (newPreferences) => {
         try {
-            const config = {
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${user.token}`,
-                },
-            };
-            const { data } = await axios.put(
-                "http://localhost:5000/api/auth/preferences",
-                newPreferences,
-                config
+            const { data } = await api.put(
+                "/auth/preferences",
+                newPreferences
             );
 
             // Update local state and storage

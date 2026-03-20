@@ -15,8 +15,8 @@ const SessionHistory = () => {
             try {
                 setLoading(true);
                 const [sessionsData, statsData] = await Promise.all([
-                    sessionService.getSessions(filterDays, 50, user.token),
-                    sessionService.getStats(user.token)
+                    sessionService.getSessions(filterDays, 50),
+                    sessionService.getStats()
                 ]);
                 setSessions(sessionsData);
                 setStats(statsData);
