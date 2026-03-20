@@ -17,7 +17,7 @@ A comprehensive learning management system built with the MERN stack and Vite to
 ## What Problem Does It Solve?
 
 As students, we often struggle with:
-* Scattered learning resources across multiple platforms
+* Scattered learning resources across multiple platformsan
 * No clear visibility on learning progress
 * Inability to track actual study time
 * Difficulty maintaining consistent study habits
