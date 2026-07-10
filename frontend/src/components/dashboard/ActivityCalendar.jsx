@@ -54,36 +54,36 @@ const ActivityCalendar = ({ selectedDate, onDateSelect }) => {
     };
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
+        <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm font-sans text-zinc-800">
+            <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
-                    <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600">
-                        <CalendarIcon size={20} />
+                    <div className="bg-zinc-100 p-2 rounded-lg text-zinc-900 border border-zinc-200/40">
+                        <CalendarIcon size={18} />
                     </div>
-                    <h2 className="text-lg font-bold text-gray-800">Activity Calendar</h2>
+                    <h2 className="text-sm font-semibold tracking-tight text-zinc-900">Activity Calendar</h2>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                <div className="flex items-center gap-1.5 bg-zinc-100/80 rounded-lg p-1 border border-zinc-200/20">
                     <button
                         onClick={handlePrevMonth}
-                        className="p-1 hover:bg-white hover:shadow-sm rounded-md text-gray-400 hover:text-gray-600 transition-all"
+                        className="p-1 hover:bg-white hover:shadow-sm rounded text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
                     >
-                        <ChevronLeft size={16} />
+                        <ChevronLeft size={14} />
                     </button>
-                    <span className="text-sm font-medium text-gray-600 min-w-[80px] text-center">
+                    <span className="text-xs font-semibold text-zinc-700 min-w-[76px] text-center select-none">
                         {currentMonth.toLocaleDateString('default', { month: 'short', year: 'numeric' })}
                     </span>
                     <button
                         onClick={handleNextMonth}
-                        className="p-1 hover:bg-white hover:shadow-sm rounded-md text-gray-400 hover:text-gray-600 transition-all"
+                        className="p-1 hover:bg-white hover:shadow-sm rounded text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
                     >
-                        <ChevronRight size={16} />
+                        <ChevronRight size={14} />
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 mb-2">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                    <div key={i} className="text-center text-xs font-medium text-gray-400 py-1">
+            <div className="grid grid-cols-7 gap-1 mb-1">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day, i) => (
+                    <div key={i} className="text-center text-[10px] font-bold text-zinc-400 py-1 uppercase tracking-wider">
                         {day}
                     </div>
                 ))}
@@ -95,17 +95,17 @@ const ActivityCalendar = ({ selectedDate, onDateSelect }) => {
                     const isTodayDate = day && isToday(day);
 
                     return (
-                        <div key={index} className="flex justify-center items-center py-1">
+                        <div key={index} className="flex justify-center items-center py-0.5">
                             {day && (
                                 <button
                                     onClick={() => onDateSelect(day)}
                                     className={`
-                                        w-9 h-9 flex items-center justify-center rounded-lg text-sm transition-all
+                                        w-8 h-8 flex items-center justify-center rounded-lg text-xs transition-all duration-150 cursor-pointer
                                         ${isSelected
-                                            ? 'bg-indigo-600 text-white shadow-md font-bold'
+                                            ? 'bg-zinc-950 text-white font-semibold shadow'
                                             : isTodayDate
-                                                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100 font-semibold hover:bg-indigo-100'
-                                                : 'text-gray-600 hover:bg-gray-50'
+                                                ? 'bg-zinc-100 text-zinc-900 border border-zinc-300 font-semibold hover:bg-zinc-200'
+                                                : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                                         }
                                     `}
                                 >
@@ -117,14 +117,14 @@ const ActivityCalendar = ({ selectedDate, onDateSelect }) => {
                 })}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                        Selected
+            <div className="mt-4 pt-3 border-t border-zinc-100">
+                <div className="flex items-center justify-between text-[10px] font-medium text-zinc-400">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-zinc-950"></span>
+                        Selected Date
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-50 border border-indigo-200"></span>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded bg-zinc-100 border border-zinc-300"></span>
                         Today
                     </div>
                 </div>

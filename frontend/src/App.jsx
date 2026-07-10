@@ -10,6 +10,7 @@ import SessionHistory from "./pages/SessionHistory";
 import ProblemTracker from "./pages/ProblemTracker";
 import Notes from "./pages/Notes";
 import Dashboard from "./pages/Dashboard";
+import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -32,6 +33,7 @@ function App() {
                 <Route path="/history" element={<SessionHistory />} />
                 <Route path="/problems" element={<ProblemTracker />} />
                 <Route path="/notes" element={<Notes />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
           </Routes>

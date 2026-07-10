@@ -1,8 +1,7 @@
-import { useContext } from "react";
+import { useState, useContext } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-    LayoutDashboard, BookOpen, Clock, Activity, FileText,
-    Book, LogOut, ChevronRight
+    LayoutDashboard, BookOpen, Clock, Code, Book, LogOut, ChevronRight, Settings, Menu, X
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 
@@ -10,6 +9,7 @@ const Layout = () => {
     const { logout, user } = useContext(AuthContext);
     const location = useLocation();
     const navigate = useNavigate();
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     const handleLogout = () => {
         logout();
@@ -19,79 +19,125 @@ const Layout = () => {
     const navItems = [
         { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
         { path: "/subjects", icon: BookOpen, label: "Subjects" },
+        { path: "/problems", icon: Code, label: "Practice" },
         { path: "/timer", icon: Clock, label: "Focus Timer" },
-        { path: "/problems", icon: Activity, label: "Problem Tracker" },
-        { path: "/history", icon: FileText, label: "History" },
         { path: "/notes", icon: Book, label: "Notes" },
+        { path: "/settings", icon: Settings, label: "Settings" },
     ];
 
+    const toggleMobileMenu = () => setIsMobileOpen(!isMobileOpen);
+
+    const SidebarContent = () => (
+        <div className="flex flex-col h-full bg-zinc-50 border-r border-zinc-200/60 font-sans">
+            {/* Header */}
+            <div className="p-6 border-b border-zinc-200/40">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center text-white shadow-sm font-bold text-lg select-none">
+                        LT
+                    </div>
+                    <div>
+                        <h1 className="font-semibold text-zinc-900 tracking-tight text-lg">LearnTrack</h1>
+                        <p className="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">SaaS Platform</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation List */}
+            <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+                {navItems.map((item) => {
+                    const isActive = location.pathname === item.path || (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
+                    const Icon = item.icon;
+
+                    return (
+                        <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setIsMobileOpen(false)}
+                            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all duration-150 group ${isActive
+                                ? "bg-zinc-950 text-white font-medium shadow-sm"
+                                : "text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900"
+                                }`}
+                        >
+                            <Icon size={18} className={isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-600"} />
+                            <span>{item.label}</span>
+                            {isActive && <ChevronRight size={14} className="ml-auto opacity-50" />}
+                        </Link>
+                    );
+                })}
+            </nav>
+
+            {/* Profile Info and Sign Out */}
+            <div className="p-4 border-t border-zinc-200/40 bg-zinc-100/30">
+                <div className="flex items-center gap-3 px-3 py-2.5 mb-3 rounded-lg bg-white border border-zinc-200/50 shadow-sm overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-xs select-none">
+                        {user?.name?.charAt(0) || "U"}
+                    </div>
+                    <div className="overflow-hidden">
+                        <p className="text-xs font-semibold text-zinc-800 truncate">{user?.name}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{user?.email}</p>
+                    </div>
+                </div>
+
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-zinc-600 hover:bg-red-50 hover:text-red-600 transition-colors text-xs font-medium"
+                >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            {/* Sidebar */}
-            <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 hidden md:flex flex-col z-50">
-                <div className="p-6 border-b border-gray-50">
-                    <div className="flex items-center gap-1">
-                        <img src="/src/assets/logo.png" alt="Logo" className="w-20 h-20 rounded-xl object-cover" />
-                        <div>
-                            <h1 className="font-bold text-gray-900 leading-none text-[20px]">LearnTrack</h1>
-                        </div>
+        <div className="flex min-h-screen bg-white">
+            {/* Desktop Sidebar */}
+            <aside className="fixed left-0 top-0 h-screen w-64 hidden md:block z-40">
+                <SidebarContent />
+            </aside>
+
+            {/* Mobile Header Bar */}
+            <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-zinc-200/60 flex items-center justify-between px-4 md:hidden z-30">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-950 flex items-center justify-center text-white font-bold text-sm">
+                        LT
+                    </div>
+                    <span className="font-semibold text-zinc-900 text-sm">LearnTrack</span>
+                </div>
+                <button
+                    onClick={toggleMobileMenu}
+                    className="p-2 text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
+                >
+                    {isMobileOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+            </header>
+
+            {/* Mobile Sidebar Overlay Drawer */}
+            {isMobileOpen && (
+                <div className="fixed inset-0 z-50 md:hidden flex">
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={toggleMobileMenu} />
+                    
+                    {/* Drawer container */}
+                    <div className="relative w-64 max-w-xs h-full animate-slide-in shadow-xl flex flex-col z-10">
+                        <button
+                            onClick={toggleMobileMenu}
+                            className="absolute top-4 right-[-44px] p-2 bg-white text-zinc-600 rounded-r-lg shadow border-y border-r border-zinc-200 flex items-center justify-center"
+                        >
+                            <X size={20} />
+                        </button>
+                        <SidebarContent />
                     </div>
                 </div>
+            )}
 
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    {navItems.map((item) => {
-                        const isActive = location.pathname.startsWith(item.path);
-                        const Icon = item.icon;
-
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${isActive
-                                    ? "bg-indigo-50 text-indigo-600 font-medium shadow-sm"
-                                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                                    }`}
-                            >
-                                <Icon size={20} className={isActive ? "text-indigo-600" : "text-gray-400 group-hover:text-gray-600"} />
-                                <span>{item.label}</span>
-                                {isActive && <ChevronRight size={16} className="ml-auto opacity-50" />}
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                <div className="p-4 border-t border-gray-50">
-                    <div className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl bg-gray-50">
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                            {user?.name?.charAt(0) || "U"}
-                        </div>
-                        <div className="overflow-hidden">
-                            <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-                            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                        </div>
-                    </div>
-
-
-
-
-
-
-
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
-                    >
-                        <LogOut size={18} />
-                        <span>Sign Out</span>
-                    </button>
+            {/* Main Content Area */}
+            <main className="flex-1 md:ml-64 min-h-screen pt-16 md:pt-0 overflow-x-hidden">
+                <div className="max-w-7xl mx-auto">
+                    <Outlet />
                 </div>
-            </aside >
-
-            {/* Main Content */}
-            < main className="flex-1 md:ml-64 p-4 md:p-8 overflow-x-hidden" >
-                <Outlet />
-            </main >
-        </div >
+            </main>
+        </div>
     );
 };
 

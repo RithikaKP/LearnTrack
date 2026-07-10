@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import {
     Plus, Search, PenTool, Pin, Tag, Book, Filter, X,
-    Trash2, Edit2, Bookmark
+    Trash2, Edit2, Bookmark, Sparkles, CheckCircle
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import noteService from '../context/noteService';
@@ -58,8 +58,6 @@ const Notes = () => {
             await noteService.togglePin(id);
             // Optimistic update
             setNotes(prev => prev.map(n => n._id === id ? { ...n, isPinned: !n.isPinned } : n));
-            // Re-sort handled by backend usually, but for local update we might want to refresh fully
-            // For now, let's refresh fully to keep sort order correct
             fetchNotes();
         } catch (error) {
             console.error("Pin failed");
@@ -68,7 +66,7 @@ const Notes = () => {
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (window.confirm('Delete this note?')) {
+        if (window.confirm('Are you sure you want to delete this note?')) {
             try {
                 await noteService.deleteNote(id);
                 setNotes(prev => prev.filter(n => n._id !== id));
@@ -134,43 +132,50 @@ const Notes = () => {
     };
 
     return (
-        <div className="w-full px-4 py-8">
+        <div className="w-full px-4 sm:px-6 py-8 font-sans text-zinc-800 bg-white min-h-screen">
             {/* Header & Controls */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Book className="text-indigo-600" /> Study Notes
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1">Capture ideas, revision points, and key concepts.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-zinc-100 rounded-xl text-zinc-900 border border-zinc-200/50">
+                        <Book size={20} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Study Notes</h1>
+                        <p className="text-sm text-zinc-500">Capture ideas, revision checklists, and core learning logs.</p>
+                    </div>
                 </div>
 
                 <button
                     onClick={() => openModal()}
-                    className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
+                    className="inline-flex items-center justify-center gap-2 bg-zinc-950 text-white px-4 py-2.5 rounded-lg text-xs font-semibold hover:bg-zinc-900 shadow-sm hover:translate-y-[-0.5px] active:translate-y-0 transition-all cursor-pointer"
                 >
-                    <Plus size={20} /> New Note
+                    <Plus size={16} /> New Note
                 </button>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-center">
-                <div className="relative flex-1 w-full">
-                    <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+            {/* Filter and Search controls */}
+            <div className="bg-white border border-zinc-200/60 p-4 rounded-xl shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full md:max-w-md">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input
                         type="text"
-                        placeholder="Search notes by title or content..."
+                        placeholder="Search notes by title or description..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                        className="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-50/50 border border-zinc-200 rounded-lg hover:border-zinc-300 transition-all outline-none focus:border-zinc-800 shadow-sm"
                     />
                 </div>
 
-                <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
+                <div className="flex bg-zinc-100 p-1 border border-zinc-200/20 rounded-lg w-full md:w-auto">
                     {['all', 'pinned', 'revision'].map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-medium capitalize transition-all ${filter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            className={`flex-1 md:flex-none px-4 py-1.5 rounded-md text-xs font-semibold capitalize transition-all cursor-pointer ${
+                                filter === f 
+                                    ? 'bg-zinc-950 text-white shadow-sm' 
+                                    : 'text-zinc-500 hover:text-zinc-800'
+                            }`}
                         >
                             {f}
                         </button>
@@ -180,14 +185,14 @@ const Notes = () => {
 
             {/* Notes Grid */}
             {loading ? (
-                <div className="flex justify-center p-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500"></div>
+                <div className="flex justify-center py-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-950 border-t-transparent"></div>
                 </div>
             ) : notes.length === 0 ? (
-                <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                    <PenTool size={48} className="mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900">No notes found</h3>
-                    <p className="text-gray-500 mt-1">Create your first note to get started!</p>
+                <div className="text-center py-20 bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200 select-none">
+                    <PenTool size={36} className="mx-auto text-zinc-300 mb-3 animate-pulse" />
+                    <h3 className="text-sm font-semibold text-zinc-850">No notes found</h3>
+                    <p className="text-xs text-zinc-450 mt-1">Create your first study scribble or note checklist to begin.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -195,50 +200,58 @@ const Notes = () => {
                         <div
                             key={note._id}
                             onClick={() => openModal(note)}
-                            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 group relative cursor-pointer flex flex-col h-full"
+                            className="bg-white rounded-xl p-5 border border-zinc-200/60 shadow-sm hover:shadow-md/5 transition-all group relative cursor-pointer flex flex-col justify-between h-56"
                         >
-                            <div className="flex justify-between items-start mb-3">
-                                <h3 className="font-bold text-gray-800 text-lg line-clamp-1 pr-6">{note.title}</h3>
-                                <button
-                                    onClick={(e) => handlePin(e, note._id)}
-                                    className={`absolute top-6 right-6 p-1 rounded-full hover:bg-gray-100 transition-colors ${note.isPinned ? 'text-indigo-600' : 'text-gray-300'}`}
-                                >
-                                    <Pin size={18} fill={note.isPinned ? "currentColor" : "none"} />
-                                </button>
+                            <div>
+                                <div className="flex justify-between items-start mb-2.5">
+                                    <h3 className="font-semibold text-sm text-zinc-800 truncate pr-6 leading-tight">{note.title}</h3>
+                                    <button
+                                        onClick={(e) => handlePin(e, note._id)}
+                                        className={`absolute top-5 right-5 p-1 rounded-md hover:bg-zinc-100 transition-colors ${
+                                            note.isPinned ? 'text-zinc-950' : 'text-zinc-300'
+                                        }`}
+                                    >
+                                        <Pin size={14} fill={note.isPinned ? "currentColor" : "none"} />
+                                    </button>
+                                </div>
+
+                                <p className="text-zinc-500 text-xs mb-4 line-clamp-4 leading-relaxed whitespace-pre-line">
+                                    {note.content}
+                                </p>
                             </div>
 
-                            <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-1 whitespace-pre-line">
-                                {note.content}
-                            </p>
+                            <div>
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                    {note.isRevision && (
+                                        <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded flex items-center gap-1 select-none">
+                                            <Sparkles size={9} /> Revision
+                                        </span>
+                                    )}
+                                    {note.tags.slice(0, 3).map((tag, i) => (
+                                        <span key={i} className="text-[10px] font-medium bg-zinc-100 text-zinc-650 border border-zinc-200/20 px-1.5 py-0.5 rounded">
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                </div>
 
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {note.isRevision && (
-                                    <span className="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded-md flex items-center gap-1">
-                                        <Bookmark size={10} fill="currentColor" /> Revision
-                                    </span>
-                                )}
-                                {note.tags.map((tag, i) => (
-                                    <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-md">
-                                        #{tag}
-                                    </span>
-                                ))}
-                            </div>
-
-                            <div className="flex items-center justify-between pt-4 border-t border-gray-50 text-xs text-gray-400">
-                                <span>Updated {timeAgo(note.updatedAt)}</span>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); openModal(note); }}
-                                        className="hover:text-indigo-600 p-1"
-                                    >
-                                        <Edit2 size={14} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleDelete(e, note._id)}
-                                        className="hover:text-red-600 p-1"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                <div className="flex items-center justify-between pt-3 border-t border-zinc-150/40 text-[10px] font-medium text-zinc-400">
+                                    <span>Updated {timeAgo(note.updatedAt)}</span>
+                                    <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openModal(note); }}
+                                            className="hover:text-zinc-950 p-1"
+                                            title="Edit Note"
+                                        >
+                                            <Edit2 size={12} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDelete(e, note._id)}
+                                            className="hover:text-red-650 p-1"
+                                            title="Delete Note"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -246,95 +259,92 @@ const Notes = () => {
                 </div>
             )}
 
-            {/* Editor Modal */}
+            {/* Editor Modal Overlay */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white border border-zinc-250/50 shadow-2xl w-full max-w-2xl h-[75vh] flex flex-col rounded-xl overflow-hidden animate-scale-in">
+                        
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                            <h2 className="text-xl font-bold text-gray-900">{editingNote ? 'Edit Note' : 'Create New Note'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                                <X size={20} className="text-gray-500" />
+                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                            <h2 className="text-sm font-semibold text-zinc-900">{editingNote ? 'Edit Study Note' : 'Create New Note'}</h2>
+                            <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-zinc-150/50 rounded-lg transition-colors cursor-pointer">
+                                <X size={16} className="text-zinc-500" />
                             </button>
                         </div>
 
-                        {/* Modal Body */}
-                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Modal Form Content */}
+                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
                             <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 select-none">Note Title</label>
                                 <input
                                     type="text"
                                     required
                                     value={formData.title}
                                     onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full text-2xl font-bold placeholder-gray-300 border-none outline-none focus:ring-0 px-0"
-                                    placeholder="Note Title"
+                                    className="w-full text-lg font-bold placeholder-zinc-300 border-b border-zinc-200 outline-none focus:border-zinc-800 pb-1"
+                                    placeholder="e.g. Graph BFS Traversal"
                                 />
                             </div>
 
-                            <div className="flex-1 min-h-[300px]">
+                            <div className="flex-1 min-h-[220px]">
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 select-none">Note Content</label>
                                 <textarea
                                     required
                                     value={formData.content}
                                     onChange={e => setFormData({ ...formData, content: e.target.value })}
-                                    className="w-full h-full min-h-[300px] resize-none border-none outline-none focus:ring-0 text-gray-700 leading-relaxed px-0"
-                                    placeholder="Start typing your note here..."
+                                    className="w-full h-full min-h-[220px] resize-none border border-zinc-200 rounded-lg p-3 text-xs text-zinc-700 leading-relaxed outline-none focus:border-zinc-800 bg-zinc-50/20"
+                                    placeholder="Write your explanation or code snippets here..."
                                 ></textarea>
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-gray-500">
-                                    <Tag size={18} />
+                            <div className="pt-2 border-t border-zinc-100 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Tag size={14} className="text-zinc-400" />
                                     <input
                                         type="text"
                                         value={formData.tags}
                                         onChange={e => setFormData({ ...formData, tags: e.target.value })}
-                                        className="flex-1 bg-transparent border-b border-gray-200 focus:border-indigo-500 outline-none py-1 text-sm"
-                                        placeholder="Add tags (comma separated)..."
+                                        className="flex-1 bg-transparent border-b border-zinc-200 focus:border-zinc-800 outline-none py-1 text-xs"
+                                        placeholder="Add tags separated by comma (e.g. graphs, bfs, algorithms)..."
                                     />
                                 </div>
 
-                                <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-5 pt-1">
                                     <label className="flex items-center gap-2 cursor-pointer select-none group">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.isRevision ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white group-hover:border-purple-400'}`}>
-                                            {formData.isRevision && <CheckCircle size={12} className="text-white" />}
-                                        </div>
                                         <input
                                             type="checkbox"
                                             checked={formData.isRevision}
                                             onChange={e => setFormData({ ...formData, isRevision: e.target.checked })}
-                                            className="hidden"
+                                            className="w-3.5 h-3.5 border border-zinc-300 rounded focus:ring-0 text-zinc-950 accent-zinc-950"
                                         />
-                                        <span className="text-sm text-gray-700">Mark for Revision</span>
+                                        <span className="text-xs text-zinc-650 font-medium">Mark for Revision list</span>
                                     </label>
 
                                     <label className="flex items-center gap-2 cursor-pointer select-none group">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.isPinned ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white group-hover:border-indigo-400'}`}>
-                                            {formData.isPinned && <CheckCircle size={12} className="text-white" />}
-                                        </div>
                                         <input
                                             type="checkbox"
                                             checked={formData.isPinned}
                                             onChange={e => setFormData({ ...formData, isPinned: e.target.checked })}
-                                            className="hidden"
+                                            className="w-3.5 h-3.5 border border-zinc-300 rounded focus:ring-0 text-zinc-950 accent-zinc-950"
                                         />
-                                        <span className="text-sm text-gray-700">Pin Note</span>
+                                        <span className="text-xs text-zinc-650 font-medium">Pin Note to Top</span>
                                     </label>
                                 </div>
                             </div>
                         </form>
 
-                        {/* Modal Footer */}
-                        <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
+                        {/* Modal Actions Footer */}
+                        <div className="p-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50/50">
                             <button
                                 type="button"
                                 onClick={() => setIsModalOpen(false)}
-                                className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-200 transition-colors"
+                                className="px-4 py-2 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-200/50 transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
+                                className="px-4 py-2 bg-zinc-950 text-white rounded-lg text-xs font-semibold hover:bg-zinc-900 shadow transition-all cursor-pointer"
                             >
                                 Save Note
                             </button>
@@ -345,22 +355,5 @@ const Notes = () => {
         </div>
     );
 };
-
-// CheckCircle Helper
-const CheckCircle = ({ size, className }) => (
-    <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-    >
-        <polyline points="20 6 9 17 4 12" />
-    </svg>
-);
 
 export default Notes;

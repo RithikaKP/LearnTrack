@@ -36,7 +36,7 @@ export const SubjectProvider = ({ children }) => {
         setIsLoading(true);
         try {
             const newSubject = await subjectService.createSubject(subjectData);
-            setSubjects([newSubject, ...subjects]);
+            setSubjects(prev => [newSubject, ...prev]);
             setError(null);
             return newSubject;
         } catch (err) {
@@ -51,7 +51,7 @@ export const SubjectProvider = ({ children }) => {
         setIsLoading(true);
         try {
             const updatedSubject = await subjectService.updateSubject(id, subjectData);
-            setSubjects(subjects.map((sub) => (sub._id === id ? updatedSubject : sub)));
+            setSubjects(prev => prev.map((sub) => (sub._id === id ? updatedSubject : sub)));
             setError(null);
             return updatedSubject;
         } catch (err) {
@@ -66,7 +66,7 @@ export const SubjectProvider = ({ children }) => {
         setIsLoading(true);
         try {
             await subjectService.deleteSubject(id);
-            setSubjects(subjects.filter((sub) => sub._id !== id));
+            setSubjects(prev => prev.filter((sub) => sub._id !== id));
             setError(null);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to delete subject');
