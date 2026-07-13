@@ -39,11 +39,18 @@ const topicSchema = new mongoose.Schema({
     }],
     status: {
         type: String,
-        enum: ['pending', 'in-progress', 'completed', 'revision'],
+        enum: ['pending', 'in-progress', 'completed', 'revision', 'overdue', 'mastered'],
         default: 'pending'
     },
     completedAt: {
         type: Date
+    },
+    assignedDate: {
+        type: Date
+    },
+    description: {
+        type: String,
+        default: ''
     },
     difficulty: {
         type: String,
@@ -52,7 +59,7 @@ const topicSchema = new mongoose.Schema({
     },
     timeSpent: {
         type: Number,
-        default: 0 // in minutes
+        default: 0
     },
     notes: {
         type: String,
@@ -62,7 +69,6 @@ const topicSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Compound index to ensure queries for a user's subject topics are fast
 topicSchema.index({ user: 1, subject: 1 });
 
 module.exports = mongoose.model('Topic', topicSchema);

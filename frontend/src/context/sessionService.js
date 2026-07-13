@@ -1,28 +1,23 @@
 import api from '../utils/api';
 
-// Create session
 const createSession = async (sessionData) => {
     const response = await api.post('/sessions/', sessionData);
     return response.data;
 };
 
-// Complete session
 const completeSession = async (sessionId, sessionData) => {
     const response = await api.patch(`/sessions/${sessionId}/complete`, sessionData);
     return response.data;
 };
 
-// Get stats
 const getStats = async () => {
     const response = await api.get('/sessions/stats');
     return response.data;
 };
 
-// Get sessions with filters
-const getSessions = async (days = 30, limit = 50) => {
-    const response = await api.get('/sessions/', {
-        params: { days, limit }
-    });
+const getSessions = async (filters = {}) => {
+    const params = typeof filters === 'object' ? filters : { days: filters };
+    const response = await api.get('/sessions/', { params });
     return response.data;
 };
 

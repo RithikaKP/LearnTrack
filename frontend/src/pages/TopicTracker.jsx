@@ -17,7 +17,6 @@ const TopicTracker = () => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingTopic, setEditingTopic] = useState(null);
 
-    // Fetch data
     useEffect(() => {
         const fetchData = async () => {
             if (!user || !subjectId) return;
@@ -38,17 +37,14 @@ const TopicTracker = () => {
         fetchData();
     }, [subjectId, user]);
 
-    // Handlers
     const handleStatusChange = async (topicId, newStatus) => {
         try {
-            // Optimistic update
             setTopics(prev => prev.map(t =>
                 t._id === topicId ? { ...t, status: newStatus } : t
             ));
 
             await topicService.updateTopicStatus(topicId, newStatus);
 
-            // Refresh subject to get updated counters
             const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
         } catch (error) {
@@ -58,13 +54,10 @@ const TopicTracker = () => {
 
     const handleCreate = async (topicData) => {
         try {
-            // Include subjectId in creation
             const newTopic = await topicService.createTopic({ ...topicData, subjectId });
 
-            // Add to list and sort
             setTopics(prev => [...prev, newTopic].sort((a, b) => a.dayNumber - b.dayNumber));
 
-            // Refresh subject for counters
             const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
             setIsFormOpen(false);
@@ -91,7 +84,6 @@ const TopicTracker = () => {
             await topicService.deleteTopic(topicId);
             setTopics(prev => prev.filter(t => t._id !== topicId));
 
-            // Refresh subject counters
             const updatedSubject = await subjectService.getSubject(subjectId);
             setSubject(updatedSubject);
         } catch (error) {
@@ -108,7 +100,6 @@ const TopicTracker = () => {
 
     return (
         <div className="max-w-5xl mx-auto px-4 py-8 font-sans text-zinc-800 bg-white min-h-screen">
-            {/* Header */}
             <div className="mb-8">
                 <Link to="/subjects" className="inline-flex items-center text-xs font-semibold text-zinc-500 hover:text-zinc-900 mb-4 transition-colors">
                     <ArrowLeft size={14} className="mr-1" /> Back to My Subjects
@@ -137,7 +128,6 @@ const TopicTracker = () => {
                         </div>
                     </div>
 
-                    {/* Progress Bar Large */}
                     <div className="pt-2">
                         <div className="flex justify-between mb-2 text-xs font-semibold">
                             <span className="text-zinc-650">Course Progress</span>
@@ -157,10 +147,8 @@ const TopicTracker = () => {
                 </div>
             </div>
 
-            {/* Daily Goal Validation / Warning */}
             <DailyGoalTracker topics={topics} dailyTarget={subject.dailyTarget} />
 
-            {/* Topics List */}
             <div className="flex justify-between items-center mb-6 mt-8 pt-4 border-t border-zinc-150/40">
                 <h2 className="text-sm font-bold tracking-tight text-zinc-900">Learning Path Track</h2>
                 <button
@@ -200,9 +188,7 @@ const TopicTracker = () => {
     );
 };
 
-// Component to track daily goal validation
 const DailyGoalTracker = ({ topics, dailyTarget }) => {
-    // 1. Group topics by Day Number
     const topicsByDay = topics.reduce((acc, topic) => {
         const day = topic.dayNumber;
         if (!acc[day]) acc[day] = 0;
@@ -210,16 +196,14 @@ const DailyGoalTracker = ({ topics, dailyTarget }) => {
         return acc;
     }, {});
 
-    // 2. Find the "Latest" active day (max day)
     const topicDays = Object.keys(topicsByDay).map(Number);
     const maxDay = topicDays.length > 0 ? Math.max(...topicDays) : 1;
 
-    // 3. Count for that day
     const currentCount = topicsByDay[maxDay] || 0;
     const isComplete = currentCount >= dailyTarget;
     const missing = dailyTarget - currentCount;
 
-    if (isComplete) return null; // No warning if goal met
+    if (isComplete) return null;
 
     return (
         <div className="mt-6 bg-orange-50/40 border border-orange-200/50 p-4 rounded-xl text-xs text-orange-850 flex gap-3 shadow-sm font-sans">

@@ -9,9 +9,8 @@ const verifyFix = async () => {
 
         const results = {};
 
-        // Mock the User Query: Date = Jan 27 2026
-        const queryDateString = '2026-01-27T10:00:00.000Z'; // Or current date
-        const queryDate = new Date(queryDateString); // This is what comes from frontend
+        const queryDateString = '2026-01-27T10:00:00.000Z';
+        const queryDate = new Date(queryDateString);
 
         results.queryDate = queryDate.toISOString();
 
@@ -38,7 +37,6 @@ const verifyFix = async () => {
 
         results.topicsFoundPreFilter = topics.map(t => ({ name: t.name, dayNumber: t.dayNumber }));
 
-        // === SIMULATE CONTROLLER LOGIC BELLOW ===
 
         const subjectStartDate = new Date(dsa.startDate);
         const start = new Date(subjectStartDate);

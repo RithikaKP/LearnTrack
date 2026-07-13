@@ -4,15 +4,11 @@ const StudySession = require('../models/StudySession');
 const CodingProblem = require('../models/CodingProblem');
 const User = require('../models/User');
 
-// @desc    Get aggregated dashboard stats
-// @route   GET /api/dashboard/stats
-// @access  Private
 const getDashboardStats = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Parallel Data Fetching
     const [subjects, sessions, problems, user] = await Promise.all([
         Subject.find({ user: userId }),
         StudySession.find({
@@ -24,7 +20,6 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         User.findById(userId)
     ]);
 
-    // 1. Subject Stats
     const totalTopics = subjects.reduce((acc, sub) => acc + (sub.totalTopics || 0), 0);
     const completedTopics = subjects.reduce((acc, sub) => acc + (sub.completedTopics || 0), 0);
     const overallProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
@@ -39,13 +34,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         timeSpent: sub.totalTimeSpent || 0
     }));
 
-    // 2. Time Stats
-    const totalTimeSpent = sessions.reduce((acc, sess) => acc + sess.actualTime, 0); // last 30 days
+    const totalTimeSpent = sessions.reduce((acc, sess) => acc + sess.actualTime, 0);
     const uniqueDays = new Set(sessions.map(s => new Date(s.createdAt).toDateString())).size;
     const averageDailyTime = uniqueDays > 0 ? Math.round(totalTimeSpent / uniqueDays) : 0;
     const averageSessionTime = sessions.length > 0 ? Math.round(totalTimeSpent / sessions.length) : 0;
 
-    // Most studied subject
     let mostStudied = 'N/A';
     let maxTime = 0;
     subjectBreakdown.forEach(sub => {
@@ -55,36 +48,30 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         }
     });
 
-    // 3. Weekly Pattern
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weeklyPattern = days.map(day => ({ day, minutes: 0 }));
     sessions.forEach(sess => {
         const d = new Date(sess.createdAt).getDay();
         weeklyPattern[d].minutes += sess.actualTime;
     });
-    // Shift to start Mon (optional, keeping Sun start standard for JS getDay)
 
-    // 4. Pomodoro Stats
     const pomodoros = sessions.filter(s => s.sessionType === 'pomodoro');
-    const totalPomodoros = pomodoros.length; // These are completed sessions by query filter
-    // If we wanted rate, we'd need attempt count, but we only fetch completed here generally?
-    // Actually query was completed: true. So completion rate might need all sessions.
-    // Let's do a quick separate count for completion rate if needed, or just assume high completion
+    const totalPomodoros = pomodoros.length;
 
-    // 5. Coding Problem Stats
-    const totalProblems = problems.length;
-    const solvedProblems = problems.filter(p => p.status === 'solved').length;
+    const solvedProblemsList = problems.filter(p => p.status === 'solved');
+    const totalProblems = solvedProblemsList.length;
+    const solvedProblems = solvedProblemsList.length;
     const attemptedProblems = problems.filter(p => p.status === 'attempted').length;
     const reviewingProblems = problems.filter(p => p.status === 'reviewing').length;
 
     const problemDifficulty = {
-        Easy: problems.filter(p => p.difficulty === 'Easy').length,
-        Medium: problems.filter(p => p.difficulty === 'Medium').length,
-        Hard: problems.filter(p => p.difficulty === 'Hard').length,
+        Easy: solvedProblemsList.filter(p => p.difficulty === 'Easy').length,
+        Medium: solvedProblemsList.filter(p => p.difficulty === 'Medium').length,
+        Hard: solvedProblemsList.filter(p => p.difficulty === 'Hard').length,
     };
 
     const platformDistribution = {};
-    problems.forEach(p => {
+    solvedProblemsList.forEach(p => {
         platformDistribution[p.platform] = (platformDistribution[p.platform] || 0) + 1;
     });
 
@@ -105,11 +92,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
             currentStreak: user.currentStreak || 0,
             longestStreak: user.longestStreak || 0
         },
-        weeklyStudyPattern: weeklyPattern, // Rotated if needed
+        weeklyStudyPattern: weeklyPattern,
         subjectBreakdown,
         pomodoroStats: {
             totalPomodoros,
-            // Simple count for now
         },
         problemStats: {
             total: totalProblems,
@@ -123,14 +109,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc    Get daily activity details
-// @route   GET /api/dashboard/daily-activity
-// @access  Private
 const getDailyActivity = asyncHandler(async (req, res) => {
     const { date } = req.query;
     const userId = req.user.id;
 
-    // Parse date (start and end of day)
     const queryDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(queryDate);
     startOfDay.setHours(0, 0, 0, 0);
@@ -138,20 +120,16 @@ const getDailyActivity = asyncHandler(async (req, res) => {
     const endOfDay = new Date(queryDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 1. Fetch User's Subjects to calculate Day Number
     const subjects = await Subject.find({ user: userId });
 
-    // 2. Fetch Sessions (Time Spent - strictly by Date Activity)
     const sessions = await StudySession.find({
         user: userId,
         completed: true,
         createdAt: { $gte: startOfDay, $lte: endOfDay }
     }).populate('subject', 'name color icon dailyTarget');
 
-    // 3. Fetch Topics based on SCHEDULE (Day Number), not Completion Date
     const topicPromises = subjects.map(async (sub) => {
         const subjectStartDate = new Date(sub.startDate);
-        // Normalize to midnight
         const start = new Date(subjectStartDate);
         start.setHours(0, 0, 0, 0);
 
@@ -159,12 +137,10 @@ const getDailyActivity = asyncHandler(async (req, res) => {
         current.setHours(0, 0, 0, 0);
 
         const diffTime = current - start;
-        // Day 1 is the start date.
         const dayNum = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-        if (dayNum < 1) return []; // Before start date
+        if (dayNum < 1) return [];
 
-        // FETCH ALL TOPICS (COMPLETED OR NOT) TO DETERMINE DAILY TARGET
         return require('../models/Topic').find({
             subject: sub._id,
             dayNumber: dayNum
@@ -174,10 +150,8 @@ const getDailyActivity = asyncHandler(async (req, res) => {
     const topicsArrays = await Promise.all(topicPromises);
     const topics = topicsArrays.flat();
 
-    // Group by Subject
     const activityMap = {};
 
-    // 1. Process Sessions (Time Spent)
     sessions.forEach(sess => {
         if (!sess.subject) return;
         const subId = sess.subject._id.toString();
@@ -195,7 +169,6 @@ const getDailyActivity = asyncHandler(async (req, res) => {
         activityMap[subId].timeSpent += sess.actualTime;
     });
 
-    // 2. Process Topics
     topics.forEach(topic => {
         if (!topic.subject) return;
         const subId = topic.subject._id.toString();
@@ -211,8 +184,7 @@ const getDailyActivity = asyncHandler(async (req, res) => {
             };
         }
 
-        // If completed, add to list
-        if (topic.status === 'completed') {
+        if (['completed', 'mastered'].includes(topic.status)) {
             activityMap[subId].topicsCompleted.push(topic.name);
         }
     });

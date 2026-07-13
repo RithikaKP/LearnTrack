@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Plus, Trash2, Link as LinkIcon } from 'lucide-react';
 
 const RESOURCE_TYPES = [
@@ -16,30 +16,24 @@ const DIFFICULTIES = [
     { value: 'hard', label: 'Hard' }
 ];
 
-const TopicForm = ({ isOpen, onClose, onSubmit, initialData, nextDayNumber }) => {
-    const [formData, setFormData] = useState({
+const buildInitialFormData = (initialData, nextDayNumber) => {
+    if (initialData) {
+        return initialData;
+    }
+
+    return {
         name: '',
-        dayNumber: 1,
+        dayNumber: nextDayNumber || 1,
         difficulty: 'medium',
         notes: '',
         resources: []
-    });
+    };
+};
+
+const TopicForm = ({ isOpen, onClose, onSubmit, initialData, nextDayNumber }) => {
+    const [formData, setFormData] = useState(() => buildInitialFormData(initialData, nextDayNumber));
 
     const [newResource, setNewResource] = useState({ type: 'other', title: '', url: '' });
-
-    useEffect(() => {
-        if (initialData) {
-            setFormData(initialData);
-        } else {
-            setFormData({
-                name: '',
-                dayNumber: nextDayNumber || 1,
-                difficulty: 'medium',
-                notes: '',
-                resources: []
-            });
-        }
-    }, [initialData, nextDayNumber, isOpen]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -140,11 +134,9 @@ const TopicForm = ({ isOpen, onClose, onSubmit, initialData, nextDayNumber }) =>
                         />
                     </div>
 
-                    {/* Resources Section */}
                     <div className="bg-gray-50 rounded-xl p-4">
                         <label className="block text-sm font-bold text-gray-700 mb-3">Resources</label>
 
-                        {/* List existing resources */}
                         <div className="space-y-2 mb-4">
                             {formData.resources.map((res, idx) => (
                                 <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
@@ -164,7 +156,6 @@ const TopicForm = ({ isOpen, onClose, onSubmit, initialData, nextDayNumber }) =>
                             )}
                         </div>
 
-                        {/* Add new resource inputs */}
                         <div className="flex flex-col sm:flex-row gap-2 mt-2">
                             <select
                                 value={newResource.type}

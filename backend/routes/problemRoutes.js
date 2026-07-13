@@ -6,7 +6,12 @@ const {
     updateProblem,
     deleteProblem,
     getStats,
-    getRevisionProblems
+    getRevisionProblems,
+    getProblemsCatalog,
+    getConnectedPlatforms,
+    connectPlatform,
+    disconnectPlatform,
+    syncPlatforms
 } = require('../controllers/problemController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -15,6 +20,12 @@ router.use(protect);
 router.route('/')
     .get(getProblems)
     .post(createProblem);
+
+router.get('/catalog', getProblemsCatalog);
+router.get('/platforms', getConnectedPlatforms);
+router.post('/platforms/connect', connectPlatform);
+router.post('/platforms/disconnect', disconnectPlatform);
+router.post('/sync', syncPlatforms);
 
 router.get('/stats', getStats);
 router.get('/revision', getRevisionProblems);

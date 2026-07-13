@@ -2,11 +2,8 @@ const asyncHandler = require('express-async-handler');
 const Note = require('../models/Note');
 const mongoose = require('mongoose');
 
-// @desc    Get all notes
-// @route   GET /api/notes
-// @access  Private
 const getNotes = asyncHandler(async (req, res) => {
-    const { search, isPinned, isRevision, subjectId, topicId } = req.query;
+    const { search, isPinned, isRevision, subjectId, topicId, isReviewed, reviewDue } = req.query;
 
     let query = { user: req.user.id };
 
@@ -15,6 +12,15 @@ const getNotes = asyncHandler(async (req, res) => {
     if (subjectId) query.subject = subjectId;
     if (topicId) query.topic = topicId;
 
+    if (isReviewed === 'true') query.isReviewed = true;
+    if (isReviewed === 'false') query.isReviewed = false;
+
+    if (reviewDue === 'true') {
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        query.nextReviewDate = { $lte: today };
+    }
+
     if (search) {
         query.$or = [
             { title: { $regex: search, $options: 'i' } },
@@ -22,15 +28,11 @@ const getNotes = asyncHandler(async (req, res) => {
         ];
     }
 
-    // Sort: Pinned first, then by updatedAt desc
     const notes = await Note.find(query).sort({ isPinned: -1, updatedAt: -1 });
 
     res.status(200).json(notes);
 });
 
-// @desc    Create note
-// @route   POST /api/notes
-// @access  Private
 const createNote = asyncHandler(async (req, res) => {
     const { title, content } = req.body;
 
@@ -47,9 +49,6 @@ const createNote = asyncHandler(async (req, res) => {
     res.status(201).json(note);
 });
 
-// @desc    Update note
-// @route   PUT /api/notes/:id
-// @access  Private
 const updateNote = asyncHandler(async (req, res) => {
     const note = await Note.findById(req.params.id);
 
@@ -72,9 +71,6 @@ const updateNote = asyncHandler(async (req, res) => {
     res.status(200).json(updatedNote);
 });
 
-// @desc    Toggle pin status
-// @route   PATCH /api/notes/:id/pin
-// @access  Private
 const togglePinNote = asyncHandler(async (req, res) => {
     const note = await Note.findById(req.params.id);
 
@@ -94,9 +90,6 @@ const togglePinNote = asyncHandler(async (req, res) => {
     res.status(200).json(note);
 });
 
-// @desc    Delete note
-// @route   DELETE /api/notes/:id
-// @access  Private
 const deleteNote = asyncHandler(async (req, res) => {
     const note = await Note.findById(req.params.id);
 

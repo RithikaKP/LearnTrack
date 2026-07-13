@@ -8,7 +8,7 @@ const SessionHistory = () => {
     const [sessions, setSessions] = useState([]);
     const [stats, setStats] = useState({ totalSessions: 0, totalTime: 0, avgSessionTime: 0 });
     const [loading, setLoading] = useState(true);
-    const [filterDays, setFilterDays] = useState('30'); // '7', '30', 'all'
+    const [filterDays, setFilterDays] = useState('30');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -49,7 +49,6 @@ const SessionHistory = () => {
         <div className="w-full px-4 py-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-6">Study History</h1>
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -80,7 +79,6 @@ const SessionHistory = () => {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-800">Recent Sessions</h2>
                 <div className="flex bg-gray-100 p-1 rounded-xl">
@@ -99,7 +97,6 @@ const SessionHistory = () => {
                 </div>
             </div>
 
-            {/* Sessions List */}
             <div className="space-y-4">
                 {loading ? (
                     <div className="flex justify-center py-12">

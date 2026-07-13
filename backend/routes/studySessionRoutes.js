@@ -8,7 +8,7 @@ const {
 } = require('../controllers/studySessionController');
 const { protect } = require('../middleware/authMiddleware');
 
-router.use(protect); // Protect all session routes
+router.use(protect);
 
 router.route('/')
     .get(getSessions)

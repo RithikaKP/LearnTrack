@@ -11,11 +11,17 @@ const codingProblemSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Subject'
     },
+    topic: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Topic',
+        index: true
+    },
     platform: {
         type: String,
         required: true,
         enum: [
             'LeetCode',
+            'Codeforces',
             'CodeForces',
             'HackerRank',
             'GeeksforGeeks',
@@ -58,8 +64,8 @@ const codingProblemSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        default: 'to do',
-        enum: ['to do', 'solved', 'reviewing']
+        default: 'planned',
+        enum: ['planned', 'solved', 'to do', 'attempted', 'reviewing']
     },
     attempts: {
         type: Number,
@@ -68,6 +74,13 @@ const codingProblemSchema = new mongoose.Schema({
     },
     solvedAt: {
         type: Date
+    },
+    targetDate: {
+        type: Date
+    },
+    problemId: {
+        type: String,
+        trim: true
     },
     notes: {
         type: String
@@ -90,7 +103,6 @@ const codingProblemSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for efficient filtering
 codingProblemSchema.index({ user: 1, platform: 1, status: 1 });
 codingProblemSchema.index({ user: 1, lastAttempted: -1 });
 

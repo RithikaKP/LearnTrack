@@ -6,7 +6,6 @@ const Settings = () => {
     const { user } = useContext(AuthContext);
     const [saved, setSaved] = useState(false);
     
-    // Preferences state
     const [theme, setTheme] = useState(() => localStorage.getItem('learnTrack-theme') || 'light');
     const [dailyTarget, setDailyTarget] = useState(() => localStorage.getItem('learnTrack-daily-target') || '60');
     const [notifications, setNotifications] = useState(true);
@@ -46,7 +45,6 @@ const Settings = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    {/* Tab Navigation */}
                     <div className="md:col-span-1 space-y-1">
                         {[
                             { id: 'profile', icon: User, label: 'Profile' },
@@ -69,10 +67,8 @@ const Settings = () => {
                         ))}
                     </div>
 
-                    {/* Settings Form */}
                     <div className="md:col-span-3 space-y-6">
                         <form onSubmit={handleSave} className="space-y-6">
-                            {/* Profile Card */}
                             <div className="bg-white border border-zinc-200/60 rounded-xl shadow-sm overflow-hidden">
                                 <div className="p-5 border-b border-zinc-100 bg-zinc-50/50">
                                     <h3 className="text-sm font-semibold text-zinc-900">Personal Information</h3>
@@ -111,7 +107,6 @@ const Settings = () => {
                                 </div>
                             </div>
 
-                            {/* Preferences Card */}
                             <div className="bg-white border border-zinc-200/60 rounded-xl shadow-sm overflow-hidden">
                                 <div className="p-5 border-b border-zinc-100 bg-zinc-50/50">
                                     <h3 className="text-sm font-semibold text-zinc-900">Study Preferences</h3>
@@ -185,7 +180,6 @@ const Settings = () => {
                                 </div>
                             </div>
 
-                            {/* Actions */}
                             <div className="flex justify-end gap-3">
                                 <button
                                     type="submit"

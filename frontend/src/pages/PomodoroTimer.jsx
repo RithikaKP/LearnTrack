@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Coffee, Timer, Flame, Clock } from 'lucide-react';
 import { SubjectContext } from '../context/SubjectContext';
 import { AuthContext } from '../context/AuthContext';
@@ -22,51 +22,88 @@ const PomodoroTimer = () => {
     const [pomodoriCount, setPomodoriCount] = useState(0);
     const [stats, setStats] = useState(null);
 
-    // Fetch daily stats
-    const fetchStats = async () => {
+    const timerRef = useRef(null);
+
+    const audioStartRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
+    const audioEndRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg'));
+
+    const fetchStats = useCallback(async () => {
         try {
             const data = await sessionService.getStats();
             setStats(data);
         } catch (error) {
             console.error("Failed to fetch timer stats", error);
         }
-    };
+    }, []);
+
+    const playSound = useCallback((audioRef) => {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => { });
+    }, []);
 
     useEffect(() => {
-        if (user) fetchStats();
+        let isMounted = true;
+
+        if (user) {
+            sessionService.getStats()
+                .then((data) => {
+                    if (isMounted) setStats(data);
+                })
+                .catch((error) => {
+                    console.error("Failed to fetch timer stats", error);
+                });
+        }
+
+        return () => {
+            isMounted = false;
+        };
     }, [user]);
-
-    const timerRef = useRef(null);
-
-    // Audio
-    const audioStartRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'));
-    const audioEndRef = useRef(new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg'));
 
     const currentMode = MODES[mode];
 
-    // --- EFFECTS ---
-    useEffect(() => {
-        if (!isActive) {
-            setTimeLeft(MODES[mode].duration * 60);
+    const completeTimerSession = useCallback(() => {
+        clearInterval(timerRef.current);
+        setIsActive(false);
+        playSound(audioEndRef);
+
+        if (mode === 'pomodoro') {
+            const newCount = pomodoriCount + 1;
+            setPomodoriCount(newCount);
+
+            if (sessionData) {
+                sessionService.completeSession(
+                    sessionData._id,
+                    { actualTime: MODES.pomodoro.duration }
+                ).catch((err) => {
+                    console.error(err);
+                }).finally(() => {
+                    setSessionData(null);
+                    fetchStats();
+                });
+            }
+            setMode(newCount % 4 === 0 ? 'longBreak' : 'shortBreak');
+        } else {
+            setMode('pomodoro');
         }
-    }, [mode]);
+    }, [mode, pomodoriCount, sessionData, fetchStats, playSound]);
 
     useEffect(() => {
-        if (isActive && timeLeft > 0) {
-            timerRef.current = setInterval(() => {
-                setTimeLeft((prev) => prev - 1);
-            }, 1000);
-        } else if (timeLeft === 0) {
-            handleComplete();
-        }
+        if (!isActive) return undefined;
+
+        timerRef.current = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timerRef.current);
+                    window.setTimeout(() => completeTimerSession(), 0);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
         return () => clearInterval(timerRef.current);
-    }, [isActive, timeLeft]);
+    }, [isActive, completeTimerSession]);
 
-    // --- HANDLERS ---
-    const playSound = (audioRef) => {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => { });
-    };
 
     const toggleTimer = async () => {
         if (!isActive) {
@@ -100,33 +137,6 @@ const PomodoroTimer = () => {
         setSessionData(null);
     };
 
-    const handleComplete = async () => {
-        clearInterval(timerRef.current);
-        setIsActive(false);
-        playSound(audioEndRef);
-
-        if (mode === 'pomodoro') {
-            const newCount = pomodoriCount + 1;
-            setPomodoriCount(newCount);
-
-            if (sessionData) {
-                try {
-                    await sessionService.completeSession(
-                        sessionData._id,
-                        { actualTime: MODES.pomodoro.duration }
-                    );
-                } catch (err) {
-                    console.error(err);
-                }
-                setSessionData(null);
-                fetchStats(); // Update progress card
-            }
-            setMode(newCount % 4 === 0 ? 'longBreak' : 'shortBreak');
-        } else {
-            setMode('pomodoro');
-        }
-    };
-
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -157,10 +167,8 @@ const PomodoroTimer = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* ================= TIMER CARD ================= */}
                 <div className="lg:col-span-2 rounded-xl bg-white p-6 sm:p-8 border border-zinc-200/60 shadow-sm flex flex-col justify-between">
                     
-                    {/* Mode Switch */}
                     <div className="flex bg-zinc-100/80 p-1 border border-zinc-200/20 rounded-lg mb-8">
                         {Object.values(MODES).map((m) => (
                             <button
@@ -178,7 +186,6 @@ const PomodoroTimer = () => {
                         ))}
                     </div>
 
-                    {/* Subject Selector */}
                     <div className="mb-8 max-w-xs w-full mx-auto">
                         <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 text-center select-none">Current Focus Subject</label>
                         <div className="relative">
@@ -196,7 +203,6 @@ const PomodoroTimer = () => {
                         </div>
                     </div>
 
-                    {/* Timer Ring */}
                     <div className="flex flex-col items-center justify-center mb-8 select-none">
                         <div className="w-64 h-64 rounded-full border-4 border-zinc-100 flex items-center justify-center relative shadow-inner">
                             <div className="absolute inset-2 rounded-full border border-zinc-200/60 flex items-center justify-center">
@@ -205,7 +211,6 @@ const PomodoroTimer = () => {
                         </div>
                     </div>
 
-                    {/* Controls */}
                     <div className="flex items-center justify-center gap-4 pt-4 border-t border-zinc-100">
                         <button
                             onClick={toggleTimer}
@@ -223,7 +228,6 @@ const PomodoroTimer = () => {
                     </div>
                 </div>
 
-                {/* ================= PROGRESS CARD ================= */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm">
                         <h3 className="font-semibold text-sm text-zinc-900 mb-5 flex items-center gap-2 pb-3 border-b border-zinc-100 select-none">
@@ -264,7 +268,6 @@ const PomodoroTimer = () => {
                         </div>
                     </div>
 
-                    {/* Tip Card */}
                     <div className="bg-zinc-50 border border-zinc-200/60 rounded-xl p-5 shadow-sm">
                         <div className="flex items-start gap-3">
                             <div className="bg-zinc-950 text-white p-2 rounded-lg">

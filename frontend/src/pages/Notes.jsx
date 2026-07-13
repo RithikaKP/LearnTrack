@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import {
     Plus, Search, PenTool, Pin, Tag, Book, Filter, X,
     Trash2, Edit2, Bookmark, Sparkles, CheckCircle
@@ -9,13 +9,11 @@ import noteService from '../context/noteService';
 const Notes = () => {
     const { user } = useContext(AuthContext);
 
-    // State
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all'); // all, pinned, revision
+    const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
 
-    // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingNote, setEditingNote] = useState(null);
     const [formData, setFormData] = useState({
@@ -26,8 +24,7 @@ const Notes = () => {
         isPinned: false
     });
 
-    // Fetch Notes
-    const fetchNotes = async () => {
+    const fetchNotes = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
@@ -42,25 +39,23 @@ const Notes = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, filter, search]);
 
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
             fetchNotes();
-        }, 300); // Debounce search
+        }, 300);
         return () => clearTimeout(delayDebounce);
-    }, [user, filter, search]);
+    }, [fetchNotes]);
 
-    // Handlers
     const handlePin = async (e, id) => {
         e.stopPropagation();
         try {
             await noteService.togglePin(id);
-            // Optimistic update
             setNotes(prev => prev.map(n => n._id === id ? { ...n, isPinned: !n.isPinned } : n));
             fetchNotes();
         } catch (error) {
-            console.error("Pin failed");
+            console.error("Pin failed", error);
         }
     };
 
@@ -71,7 +66,7 @@ const Notes = () => {
                 await noteService.deleteNote(id);
                 setNotes(prev => prev.filter(n => n._id !== id));
             } catch (error) {
-                console.error("Delete failed");
+                console.error("Delete failed", error);
             }
         }
     };
@@ -115,7 +110,6 @@ const Notes = () => {
         }
     };
 
-    // Helper for time ago
     const timeAgo = (date) => {
         const seconds = Math.floor((new Date() - new Date(date)) / 1000);
         let interval = seconds / 31536000;
@@ -133,7 +127,6 @@ const Notes = () => {
 
     return (
         <div className="w-full px-4 sm:px-6 py-8 font-sans text-zinc-800 bg-white min-h-screen">
-            {/* Header & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-zinc-100 rounded-xl text-zinc-900 border border-zinc-200/50">
@@ -153,7 +146,6 @@ const Notes = () => {
                 </button>
             </div>
 
-            {/* Filter and Search controls */}
             <div className="bg-white border border-zinc-200/60 p-4 rounded-xl shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full md:max-w-md">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -183,7 +175,6 @@ const Notes = () => {
                 </div>
             </div>
 
-            {/* Notes Grid */}
             {loading ? (
                 <div className="flex justify-center py-20">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-950 border-t-transparent"></div>
@@ -259,12 +250,10 @@ const Notes = () => {
                 </div>
             )}
 
-            {/* Editor Modal Overlay */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
                     <div className="bg-white border border-zinc-250/50 shadow-2xl w-full max-w-2xl h-[75vh] flex flex-col rounded-xl overflow-hidden animate-scale-in">
                         
-                        {/* Modal Header */}
                         <div className="flex items-center justify-between p-4 border-b border-zinc-100">
                             <h2 className="text-sm font-semibold text-zinc-900">{editingNote ? 'Edit Study Note' : 'Create New Note'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-zinc-150/50 rounded-lg transition-colors cursor-pointer">
@@ -272,7 +261,6 @@ const Notes = () => {
                             </button>
                         </div>
 
-                        {/* Modal Form Content */}
                         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 select-none">Note Title</label>
@@ -333,7 +321,6 @@ const Notes = () => {
                             </div>
                         </form>
 
-                        {/* Modal Actions Footer */}
                         <div className="p-4 border-t border-zinc-100 flex justify-end gap-3 bg-zinc-50/50">
                             <button
                                 type="button"

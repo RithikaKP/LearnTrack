@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
     CheckCircle, Circle, PlayCircle, FileText, Code, Link as LinkIcon,
     Edit2, Trash2, ChevronDown
@@ -27,9 +26,6 @@ const RESOURCE_ICONS = {
 };
 
 const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-    // Derived state/defaults
     const status = STATUSES[topic.status] || STATUSES.pending;
     const difficulty = DIFFICULTIES[topic.difficulty] || DIFFICULTIES.medium;
     const StatusIcon = status.icon;
@@ -38,7 +34,6 @@ const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
         <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm hover:shadow-md/5 transition-all group relative font-sans text-zinc-800">
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-start gap-4 flex-1">
-                    {/* Day Number Badge */}
                     <div className="bg-zinc-100 border border-zinc-200 text-zinc-900 font-bold px-2.5 py-1 rounded-lg text-xs shrink-0 select-none">
                         Day {topic.dayNumber}
                     </div>
@@ -51,7 +46,6 @@ const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
                             <p className="text-xs text-zinc-400 line-clamp-2 mb-2 leading-relaxed">{topic.notes}</p>
                         )}
 
-                        {/* Resource Chips */}
                         {topic.resources && topic.resources.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {topic.resources.map((res, idx) => {
@@ -75,7 +69,6 @@ const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
                     </div>
                 </div>
 
-                {/* Actions Menu */}
                 <div className="relative ml-2 shrink-0">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <button
@@ -99,12 +92,10 @@ const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100 mt-3">
-                {/* Difficulty Badge */}
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${difficulty.color}`}>
                     {difficulty.label}
                 </span>
 
-                {/* Status Dropdown */}
                 <div className="relative group/status">
                     <button className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold shadow-sm cursor-pointer transition-colors ${status.color}`}>
                         <StatusIcon size={12} />
@@ -112,7 +103,6 @@ const TopicCard = ({ topic, onStatusChange, onEdit, onDelete }) => {
                         <ChevronDown size={10} className="opacity-60" />
                     </button>
 
-                    {/* Dropdown Content */}
                     <div className="absolute right-0 bottom-full mb-1 w-36 bg-white rounded-lg shadow-xl border border-zinc-200/80 py-1 hidden group-hover/status:block z-25 animate-scale-in">
                         {Object.entries(STATUSES).map(([key, val]) => {
                             const ItemIcon = val.icon;

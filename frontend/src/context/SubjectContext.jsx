@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import subjectService from './subjectService';
 import { AuthContext } from './AuthContext';
 
@@ -11,15 +11,7 @@ export const SubjectProvider = ({ children }) => {
 
     const { user } = useContext(AuthContext);
 
-    useEffect(() => {
-        if (user) {
-            fetchSubjects();
-        } else {
-            setSubjects([]);
-        }
-    }, [user]);
-
-    const fetchSubjects = async () => {
+    const fetchSubjects = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await subjectService.getSubjects();
@@ -30,9 +22,17 @@ export const SubjectProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const addSubject = async (subjectData) => {
+    useEffect(() => {
+        if (user) {
+            fetchSubjects();
+        } else {
+            setSubjects([]);
+        }
+    }, [user, fetchSubjects]);
+
+    const addSubject = useCallback(async (subjectData) => {
         setIsLoading(true);
         try {
             const newSubject = await subjectService.createSubject(subjectData);
@@ -45,9 +45,9 @@ export const SubjectProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const updateSubject = async (id, subjectData) => {
+    const updateSubject = useCallback(async (id, subjectData) => {
         setIsLoading(true);
         try {
             const updatedSubject = await subjectService.updateSubject(id, subjectData);
@@ -60,9 +60,9 @@ export const SubjectProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const deleteSubject = async (id) => {
+    const deleteSubject = useCallback(async (id) => {
         setIsLoading(true);
         try {
             await subjectService.deleteSubject(id);
@@ -74,20 +74,20 @@ export const SubjectProvider = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    const value = useMemo(() => ({
+        subjects,
+        isLoading,
+        error,
+        fetchSubjects,
+        addSubject,
+        updateSubject,
+        deleteSubject,
+    }), [subjects, isLoading, error, fetchSubjects, addSubject, updateSubject, deleteSubject]);
 
     return (
-        <SubjectContext.Provider
-            value={{
-                subjects,
-                isLoading,
-                error,
-                fetchSubjects,
-                addSubject,
-                updateSubject,
-                deleteSubject,
-            }}
-        >
+        <SubjectContext.Provider value={value}>
             {children}
         </SubjectContext.Provider>
     );

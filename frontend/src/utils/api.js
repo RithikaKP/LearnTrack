@@ -4,7 +4,6 @@ const api = axios.create({
     baseURL: 'http://localhost:5000/api',
 });
 
-// Add a request interceptor to add the auth token to every request
 api.interceptors.request.use(
     (config) => {
         const userInfo = JSON.parse(localStorage.getItem('userInfo'));
@@ -18,12 +17,10 @@ api.interceptors.request.use(
     }
 );
 
-// Add a response interceptor to handle 401 errors
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response && error.response.status === 401) {
-            // Token expired or unauthorized
             localStorage.removeItem('userInfo');
             window.location.href = '/login';
         }

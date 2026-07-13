@@ -5,7 +5,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
-
+console.log(process.env.GROQ_API_KEY.substring(0, 10));
 connectDB();
 
 const app = express();
@@ -17,7 +17,24 @@ app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
-// Routes will be added here
+app.get('/models', async (req, res) => {
+    try {
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`
+        );
+
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: "Failed to fetch Gemini models",
+            error: err.message
+        });
+    }
+});
+
+
 const authRoutes = require('./routes/authRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const topicRoutes = require('./routes/topicRoutes');
@@ -34,18 +51,24 @@ app.use('/api/problems', problemRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// Error Handling Middleware
+
 app.use((err, req, res, next) => {
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+
     res.status(statusCode);
+
     res.json({
         message: err.message,
-        stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+        stack: process.env.NODE_ENV === 'production'
+            ? null
+            : err.stack,
     });
 });
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    console.log(
+        `Server running in ${process.env.NODE_ENV} mode on port ${PORT}`
+    );
 });

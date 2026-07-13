@@ -35,12 +35,24 @@ const noteSchema = new mongoose.Schema({
     isPinned: {
         type: Boolean,
         default: false
+    },
+    nextReviewDate: {
+        type: Date,
+        default: function() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            return tomorrow;
+        }
+    },
+    isReviewed: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true
 });
 
-// Index for efficient filtering/sorting
 noteSchema.index({ user: 1, isPinned: -1, updatedAt: -1 });
 
 module.exports = mongoose.model('Note', noteSchema);

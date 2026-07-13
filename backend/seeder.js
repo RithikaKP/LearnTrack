@@ -3,10 +3,8 @@ const dotenv = require('dotenv');
 const colors = require('colors');
 const bcrypt = require('bcryptjs');
 
-// Load env vars
 dotenv.config();
 
-// Load Models
 const User = require('./models/User');
 const Subject = require('./models/Subject');
 const Topic = require('./models/Topic');
@@ -14,7 +12,6 @@ const StudySession = require('./models/StudySession');
 const CodingProblem = require('./models/CodingProblem');
 const Note = require('./models/Note');
 
-// Connect DB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB Connected...'.cyan.underline))
     .catch(err => {
@@ -25,9 +22,7 @@ mongoose.connect(process.env.MONGO_URI)
 const importData = async () => {
     try {
         console.log('Clearing existing data...'.red);
-        await User.deleteMany({ email: 'demo@example.com' }); // Only clear demo user
-        // We might want to clear related data for this user, but determining ID is hard before creation.
-        // For simplicity in this standalone script, let's just create fresh.
+        await User.deleteMany({ email: 'demo@example.com' });
 
         console.log('Creating Demo User...'.green);
         const salt = await bcrypt.genSalt(10);
@@ -36,18 +31,17 @@ const importData = async () => {
         const user = await User.create({
             name: 'Demo Student',
             email: 'demo@example.com',
-            password: 'password', // Storing hashed in DB, wait. User methods are skipped on create usually? No, let's just use the schema logic implies hash in pre-save.
-            // Actually our User model hashes in pre-save. So we should pass plain text.
-            // Check User.js: "if (!this.isModified('password'))"
+            password: 'password',
+            connectedPlatforms: [
+                { platform: 'LeetCode', username: 'demostudent_lc', connectedAt: new Date() },
+                { platform: 'Codeforces', username: 'demostudent_cf', connectedAt: new Date() }
+            ]
         });
 
-        // Wait, if I use create({password: '123456'}), the pre-save hook will hash it.
-        // Let's re-fetch the user just to be safe or use the instance.
         const userId = user._id;
 
         console.log(`Demo User ID: ${userId}`.green);
 
-        // --- SUBJECTS ---
         console.log('Adding Subjects...'.yellow);
         const today = new Date();
         const thirtyDaysAhead = new Date();
@@ -63,7 +57,6 @@ const importData = async () => {
         ];
         const subjects = await Subject.insertMany(subjectDocs);
 
-        // --- TOPICS ---
         console.log('Adding Topics...'.yellow);
         const topics = await Topic.insertMany([
             { user: userId, subject: subjects[0]._id, name: 'Arrays & Strings', status: 'completed', dayNumber: 1, difficulty: 'easy' },
@@ -73,7 +66,6 @@ const importData = async () => {
             { user: userId, subject: subjects[2]._id, name: 'Node.js Basics', status: 'in-progress', dayNumber: 2, difficulty: 'medium' }
         ]);
 
-        // --- SESSIONS (Last 30 Days) ---
         console.log('Adding Study Sessions...'.yellow);
         const sessions = [];
         const daysAgo = (d) => {
@@ -82,7 +74,6 @@ const importData = async () => {
             return date;
         };
 
-        // Generate random sessions
         for (let i = 0; i < 20; i++) {
             const sub = subjects[Math.floor(Math.random() * subjects.length)];
             const isPom = Math.random() > 0.3;
@@ -94,22 +85,20 @@ const importData = async () => {
                 actualTime: 25 + Math.floor(Math.random() * 20),
                 startTime: daysAgo(Math.floor(Math.random() * 30)),
                 completed: true,
-                createdAt: daysAgo(Math.floor(Math.random() * 30)) // Important for filtering
+                createdAt: daysAgo(Math.floor(Math.random() * 30))
             });
         }
         await StudySession.insertMany(sessions);
 
-        // --- CODING PROBLEMS ---
         console.log('Adding Coding Problems...'.yellow);
         await CodingProblem.insertMany([
-            { user: userId, title: 'Two Sum', platform: 'LeetCode', difficulty: 'Easy', status: 'solved', url: 'https://leetcode.com/problems/two-sum', tags: ['array', 'hash-map'] },
-            { user: userId, title: 'LRU Cache', platform: 'LeetCode', difficulty: 'Medium', status: 'solved', url: 'https://leetcode.com/problems/lru-cache', tags: ['design', 'linked-list'] },
-            { user: userId, title: 'Median of Two Sorted Arrays', platform: 'LeetCode', difficulty: 'Hard', status: 'attempted', url: 'https://leetcode.com', tags: ['binary-search'] },
-            { user: userId, title: 'Watermelon', platform: 'CodeForces', difficulty: 'Easy', status: 'solved', url: 'https://codeforces.com', tags: ['math'] },
-            { user: userId, title: 'Reverse Linked List', platform: 'LeetCode', difficulty: 'Easy', status: 'reviewing', url: 'https://leetcode.com', tags: ['linked-list'] }
+            { user: userId, title: 'Two Sum', platform: 'LeetCode', difficulty: 'Easy', status: 'solved', url: 'https://leetcode.com/problems/two-sum', tags: ['Array', 'Hash Table'], problemId: 'lc-1', solvedAt: new Date() },
+            { user: userId, title: 'LRU Cache', platform: 'LeetCode', difficulty: 'Medium', status: 'solved', url: 'https://leetcode.com/problems/lru-cache', tags: ['Design', 'Hash Table', 'Linked List'], problemId: 'lc-146', solvedAt: new Date() },
+            { user: userId, title: 'Median of Two Sorted Arrays', platform: 'LeetCode', difficulty: 'Hard', status: 'planned', url: 'https://leetcode.com/problems/median-of-two-sorted-arrays', tags: ['Array', 'Binary Search', 'Divide and Conquer'], problemId: 'lc-4', targetDate: new Date() },
+            { user: userId, title: 'Watermelon', platform: 'Codeforces', difficulty: 'Easy', status: 'solved', url: 'https://codeforces.com/problemset/problem/4/A', tags: ['Math', 'Greedy'], problemId: 'cf-4a', solvedAt: new Date() },
+            { user: userId, title: 'Reverse Linked List', platform: 'LeetCode', difficulty: 'Easy', status: 'planned', url: 'https://leetcode.com/problems/reverse-linked-list', tags: ['Linked List', 'Recursion'], problemId: 'lc-206', targetDate: new Date() }
         ]);
 
-        // --- NOTES ---
         console.log('Adding Notes...'.yellow);
         await Note.insertMany([
             { user: userId, title: 'React useEffect', content: 'Runs after render. Returns cleanup function.', tags: ['react', 'hooks'], isPinned: true },

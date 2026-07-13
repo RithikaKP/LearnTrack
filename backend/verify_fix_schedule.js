@@ -8,11 +8,9 @@ const verifySchedule = async () => {
         await mongoose.connect('mongodb://localhost:27017/learntrack');
         const results = {};
 
-        // 1. Test Day 1 (Jan 27)
         const date1 = new Date('2026-01-27T10:00:00.000Z');
         results.testDay1 = await simulateController(date1);
 
-        // 2. Test Day 2 (Jan 28)
         const date2 = new Date('2026-01-28T10:00:00.000Z');
         results.testDay2 = await simulateController(date2);
 
@@ -26,10 +24,7 @@ const verifySchedule = async () => {
 };
 
 async function simulateController(queryDate) {
-    const userId = "6795f609f16b4e2175c232b2c"; // From earlier output check_subject.js
-    // Re-fetch subjects to be safe 
-    // Wait, verification script needs to be generic or strict?
-    // Let's just find the DSA subject.
+    const userId = "6795f609f16b4e2175c232b2c";
     const sub = await Subject.findOne({ name: { $regex: 'dsa', $options: 'i' } });
 
     const subjectStartDate = new Date(sub.startDate);

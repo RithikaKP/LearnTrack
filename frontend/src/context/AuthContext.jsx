@@ -1,41 +1,41 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState } from "react";
 import api from "../utils/api";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(() => {
+        const storedUser = localStorage.getItem("userInfo");
+        if (!storedUser) return null;
+
+        try {
+            const userInfo = JSON.parse(storedUser);
+            if (!userInfo?.token) {
+                localStorage.removeItem("userInfo");
+                return null;
+            }
+
+            const payload = JSON.parse(atob(userInfo.token.split('.')[1]));
+            const isExpired = payload.exp * 1000 < Date.now();
+
+            if (isExpired) {
+                localStorage.removeItem("userInfo");
+                return null;
+            }
+
+            return userInfo;
+        } catch {
+            localStorage.removeItem("userInfo");
+            return null;
+        }
+    });
+    const loading = false;
     const [error, setError] = useState(null);
 
-    // Check if user is logged in on mount
-    useEffect(() => {
-        const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-        if (userInfo && userInfo.token) {
-            try {
-                // Simple JWT decode to check expiration
-                const payload = JSON.parse(atob(userInfo.token.split('.')[1]));
-                const isExpired = payload.exp * 1000 < Date.now();
-
-                if (isExpired) {
-                    localStorage.removeItem("userInfo");
-                    setUser(null);
-                } else {
-                    setUser(userInfo);
-                }
-            } catch (e) {
-                localStorage.removeItem("userInfo");
-                setUser(null);
-            }
-        }
-        setLoading(false);
-    }, []);
 
 
 
 
-
-    // Register user
     const register = async (name, email, password) => {
         try {
             setError(null);
@@ -57,7 +57,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Login user
     const login = async (email, password) => {
         try {
             setError(null);
@@ -79,13 +78,11 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Logout user
     const logout = () => {
         localStorage.removeItem("userInfo");
         setUser(null);
     };
 
-    // Update preferences
     const updatePreferences = async (newPreferences) => {
         try {
             const { data } = await api.put(
@@ -93,7 +90,6 @@ export const AuthProvider = ({ children }) => {
                 newPreferences
             );
 
-            // Update local state and storage
             const updatedUser = { ...user, preferences: data };
             setUser(updatedUser);
             localStorage.setItem("userInfo", JSON.stringify(updatedUser));

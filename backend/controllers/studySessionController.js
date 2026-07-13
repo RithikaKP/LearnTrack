@@ -4,9 +4,6 @@ const Subject = require('../models/Subject');
 const Topic = require('../models/Topic');
 const User = require('../models/User');
 
-// @desc    Start a new study session
-// @route   POST /api/sessions
-// @access  Private
 const createSession = asyncHandler(async (req, res) => {
     const { subjectId, topicId, sessionType, duration, startTime } = req.body;
 
@@ -28,9 +25,6 @@ const createSession = asyncHandler(async (req, res) => {
     res.status(201).json(session);
 });
 
-// @desc    Complete a session & update stats
-// @route   PATCH /api/sessions/:id/complete
-// @access  Private
 const completeSession = asyncHandler(async (req, res) => {
     const { actualTime, notes } = req.body;
 
@@ -41,7 +35,6 @@ const completeSession = asyncHandler(async (req, res) => {
         throw new Error('Session not found');
     }
 
-    // Authorization
     if (session.user.toString() !== req.user.id) {
         res.status(401);
         throw new Error('User not authorized');
@@ -52,7 +45,6 @@ const completeSession = asyncHandler(async (req, res) => {
         throw new Error('Session already completed');
     }
 
-    // Update Session
     session.completed = true;
     session.actualTime = actualTime || session.duration;
     session.endTime = new Date();
@@ -60,21 +52,19 @@ const completeSession = asyncHandler(async (req, res) => {
 
     await session.save();
 
-    // CASCADE 1: Update Subject Time
     if (session.subject) {
         await Subject.findByIdAndUpdate(session.subject, {
             $inc: { totalTimeSpent: session.actualTime }
         });
     }
 
-    // CASCADE 2: Update Topic Time (if exists)
     if (session.topic) {
         await Topic.findByIdAndUpdate(session.topic, {
             $inc: { timeSpent: session.actualTime }
         });
     }
 
-    // CASCADE 3: Update User Streaks
+
     const user = await User.findById(req.user.id);
     const today = new Date().toDateString();
     const lastStudy = user.lastStudyDate ? new Date(user.lastStudyDate).toDateString() : null;
@@ -85,10 +75,9 @@ const completeSession = asyncHandler(async (req, res) => {
         const yesterdayStr = yesterday.toDateString();
 
         if (lastStudy === yesterdayStr) {
-            // Consecutive day
+
             user.currentStreak += 1;
         } else {
-            // Streak broken (or first time)
             user.currentStreak = 1;
         }
 
@@ -103,13 +92,14 @@ const completeSession = asyncHandler(async (req, res) => {
     res.status(200).json(session);
 });
 
-// @desc    Get user sessions (history)
-// @route   GET /api/sessions
-// @access  Private
+
 const getSessions = asyncHandler(async (req, res) => {
-    const { days, limit } = req.query;
+    const { days, limit, topic, subject } = req.query;
 
     let query = { user: req.user.id, completed: true };
+
+    if (topic) query.topic = topic;
+    if (subject) query.subject = subject;
 
     if (days && days !== 'all') {
         const dateLimit = new Date();
@@ -127,13 +117,10 @@ const getSessions = asyncHandler(async (req, res) => {
     res.status(200).json(sessions);
 });
 
-// @desc    Get user study stats
-// @route   GET /api/sessions/stats
-// @access  Private
+
 const getStats = asyncHandler(async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user.id);
 
-    // Aggregation for total time
     const stats = await StudySession.aggregate([
         { $match: { user: userId, completed: true } },
         {
@@ -146,7 +133,7 @@ const getStats = asyncHandler(async (req, res) => {
         }
     ]);
 
-    // Get today's stats separately
+
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 

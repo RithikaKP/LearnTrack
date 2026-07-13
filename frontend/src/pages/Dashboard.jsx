@@ -1,15 +1,17 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import dashboardService from '../context/dashboardService';
 import problemService from '../context/problemService';
 import noteService from '../context/noteService';
 import sessionService from '../context/sessionService';
+import subjectService from '../context/subjectService';
 import {
-    ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Tooltip, BarChart, Bar, CartesianGrid, XAxis, YAxis
+    ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import {
     Clock, BookOpen, CheckCircle, Flame, RefreshCw,
-    Activity, Code, Brain, Plus, Calendar, Bell, Sparkles, Search, User, FileText, ChevronRight, X, ArrowRight, MessageSquare
+    Activity, Code, Brain, Calendar, Sparkles, ChevronRight, X, ArrowRight,
+    TrendingUp, Award, CheckCircle2, ChevronLeft, Calendar as CalendarIcon, Info
 } from 'lucide-react';
 import ActivityCalendar from '../components/dashboard/ActivityCalendar';
 
@@ -20,970 +22,697 @@ const Dashboard = () => {
     const [problems, setProblems] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [notes, setNotes] = useState([]);
+    const [subjectsList, setSubjectsList] = useState([]);
 
-    // Calendar State
+    const [timeframe, setTimeframe] = useState('week');
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [dailyActivity, setDailyActivity] = useState([]);
-    const [loadingDaily, setLoadingDaily] = useState(false);
+    const [heatmapHoverData, setHeatmapHoverData] = useState(null);
 
-    // Overlays & UI States
-    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-    const [commandTab, setCommandTab] = useState('menu'); // 'menu', 'problem', 'note'
-    const [successMessage, setSuccessMessage] = useState('');
+    const cardShell = "bg-white border border-zinc-200/70 rounded-2xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_18px_44px_-24px_rgba(24,24,27,0.35)]";
+    const sectionShell = "bg-gradient-to-br from-white via-zinc-50/60 to-zinc-100/40 border border-zinc-200/70 rounded-2xl shadow-sm";
 
-    // Quick Add Form States
-    const [problemForm, setProblemForm] = useState({
-        platform: 'LeetCode',
-        title: '',
-        url: '',
-        difficulty: 'Medium',
-        category: 'Array',
-        status: 'solved',
-        tags: '',
-        notes: ''
-    });
-
-    const [noteForm, setNoteForm] = useState({
-        title: '',
-        content: '',
-        tags: '',
-        isRevision: false
-    });
-
-    const fetchData = async () => {
+    const fetchDashboardData = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
-            const [stats, problemsData, sessionsData, notesData] = await Promise.all([
+            const [stats, problemsData, sessionsData, notesData, subjectsData] = await Promise.all([
                 dashboardService.getStats(),
                 problemService.getProblems({}),
-                sessionService.getSessions(120, 100),
-                noteService.getNotes({})
+                sessionService.getSessions(120, 150),
+                noteService.getNotes({}),
+                subjectService.getSubjects()
             ]);
             setData(stats);
             setProblems(problemsData);
             setSessions(sessionsData);
             setNotes(notesData);
+            setSubjectsList(subjectsData);
         } catch (error) {
-            console.error("Failed to fetch dashboard stats:", error);
+            console.error("Failed to fetch dashboard analytics:", error);
         } finally {
             setLoading(false);
         }
-    };
-
-    const fetchDailyActivity = async (date) => {
-        if (!user) return;
-        setLoadingDaily(true);
-        try {
-            const activity = await dashboardService.getDailyActivity(date.toISOString());
-            setDailyActivity(activity);
-        } catch (error) {
-            console.error("Failed to fetch daily activity:", error);
-        } finally {
-            setLoadingDaily(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
     }, [user]);
 
-    useEffect(() => {
-        fetchDailyActivity(selectedDate);
-    }, [selectedDate, user]);
+    useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
-    // Handle problem creation from Command Palette
-    const handleQuickProblemSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const payload = {
-                ...problemForm,
-                tags: problemForm.tags.split(',').map(t => t.trim()).filter(Boolean)
-            };
-            await problemService.createProblem(payload);
-            setSuccessMessage('Coding problem added successfully!');
-            setProblemForm({
-                platform: 'LeetCode', title: '', url: '',
-                difficulty: 'Medium', category: 'Array', status: 'solved',
-                tags: '', notes: ''
-            });
-            setTimeout(() => setSuccessMessage(''), 3000);
-            setCommandTab('menu');
-            setIsCommandPaletteOpen(false);
-            fetchData();
-        } catch (error) {
-            console.error('Failed to quick add problem:', error);
-        }
-    };
+    const dailySummary = useMemo(() => {
+        if (!selectedDate) return null;
+        const targetStr = selectedDate.toDateString();
+        const solvedProblems = problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt).toDateString() === targetStr);
+        const studySessionsToday = sessions.filter(s => s.completed && new Date(s.createdAt).toDateString() === targetStr);
+        const focusMinutes = studySessionsToday.reduce((sum, s) => sum + s.actualTime, 0);
+        const completedTopicsCount = studySessionsToday.filter(s => s.topic).length;
+        const notesReviewed = notes.filter(n => n.isReviewed && n.updatedAt && new Date(n.updatedAt).toDateString() === targetStr);
+        const notesCreated = notes.filter(n => n.createdAt && new Date(n.createdAt).toDateString() === targetStr);
+        const achievementsUnlocked = [];
+        if (solvedProblems.length >= 3) achievementsUnlocked.push('Problem Crusher');
+        if (focusMinutes >= 90) achievementsUnlocked.push('Focus Master');
+        const subjectsWorked = Array.from(new Set(studySessionsToday.map(s => s.subject?.name).filter(Boolean)));
+        return {
+            date: selectedDate,
+            problemsSolved: solvedProblems.length,
+            solvedList: solvedProblems,
+            studyTime: focusMinutes,
+            sessionsCount: studySessionsToday.length,
+            topicsCompleted: completedTopicsCount,
+            notesReviewed: notesReviewed.length,
+            notesCreated: notesCreated.length,
+            subjectsWorkedOn: subjectsWorked,
+            achievements: achievementsUnlocked
+        };
+    }, [selectedDate, problems, sessions, notes]);
 
-    // Handle note creation from Command Palette
-    const handleQuickNoteSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const payload = {
-                ...noteForm,
-                tags: noteForm.tags.split(',').map(t => t.trim()).filter(Boolean)
-            };
-            await noteService.createNote(payload);
-            setSuccessMessage('Scribble/Note saved successfully!');
-            setNoteForm({
-                title: '', content: '', tags: '', isRevision: false
-            });
-            setTimeout(() => setSuccessMessage(''), 3000);
-            setCommandTab('menu');
-            setIsCommandPaletteOpen(false);
-            fetchData();
-        } catch (error) {
-            console.error('Failed to quick add note:', error);
+    const todayStats = useMemo(() => {
+        if (!dailySummary) return { todayProgressPercentage: 0, remainingStudyTime: 120 };
+        const problemsRatio = Math.min(1, dailySummary.problemsSolved / 3);
+        const timeRatio = Math.min(1, dailySummary.studyTime / 90);
+        const topicsRatio = Math.min(1, dailySummary.topicsCompleted / 2);
+        const notesRatio = Math.min(1, dailySummary.notesReviewed / 2);
+        const pct = Math.round(((problemsRatio + timeRatio + topicsRatio + notesRatio) / 4) * 100);
+        
+        const studyBudget = 120;
+        const remaining = Math.max(0, studyBudget - dailySummary.studyTime);
+        return { todayProgressPercentage: pct, remainingStudyTime: remaining };
+    }, [dailySummary]);
+
+    const formatTime = useCallback((mins) => {
+        if (mins <= 0) return '0m';
+        const hrs = Math.floor(mins / 60);
+        const m = mins % 60;
+        if (hrs > 0) {
+            return `${hrs}h ${m}m`;
         }
-    };
+        return `${m}m`;
+    }, []);
+
+    const getDailyInsight = useCallback(() => {
+        if (!dailySummary) return "Start your first study session of the day to build momentum!";
+        const pct = todayStats.todayProgressPercentage;
+        if (pct === 100) {
+            return "Outstanding! You've achieved 100% of today's targets. Excellent consistency today! 🎉";
+        }
+        if (dailySummary.problemsSolved > 0 && dailySummary.problemsSolved < 3) {
+            const left = 3 - dailySummary.problemsSolved;
+            return `Finish ${left} remaining practice problem${left > 1 ? 's' : ''} to complete today's coding goals.`;
+        }
+        if (todayStats.remainingStudyTime > 0) {
+            return `You still have ${formatTime(todayStats.remainingStudyTime)} of planned study time remaining. Keep pushing!`;
+        }
+        if (pct >= 50) {
+            return `You're ${pct}% through today's study plan. Great progress!`;
+        }
+        return "Start your first study session of the day to build momentum!";
+    }, [dailySummary, todayStats.todayProgressPercentage, todayStats.remainingStudyTime, formatTime]);
+
+    const statsSummary = useMemo(() => {
+        if (!data || problems.length === 0) return null;
+        const getDaysAgo = (num) => { const d = new Date(); d.setDate(d.getDate() - num); return d; };
+        const todayStr = new Date().toDateString();
+        const totalSolved = problems.filter(p => p.status === 'solved').length;
+        const solvedToday = problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt).toDateString() === todayStr).length;
+        const solvedLast7 = problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt) >= getDaysAgo(7)).length;
+        const solvedPrev7 = problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt) < getDaysAgo(7) && new Date(p.solvedAt) >= getDaysAgo(14)).length;
+        const solvedTrend = solvedPrev7 > 0 ? Math.round(((solvedLast7 - solvedPrev7) / solvedPrev7) * 100) : solvedLast7 * 100;
+        const totalFocusMins = sessions.filter(s => s.completed).reduce((sum, s) => sum + s.actualTime, 0);
+        const focusHours = (totalFocusMins / 60).toFixed(1);
+        const focusLast7 = sessions.filter(s => s.completed && new Date(s.createdAt) >= getDaysAgo(7)).reduce((sum, s) => sum + s.actualTime, 0);
+        const focusPrev7 = sessions.filter(s => s.completed && new Date(s.createdAt) < getDaysAgo(7) && new Date(s.createdAt) >= getDaysAgo(14)).reduce((sum, s) => sum + s.actualTime, 0);
+        const focusTrend = focusPrev7 > 0 ? Math.round(((focusLast7 - focusPrev7) / focusPrev7) * 100) : focusLast7 * 100;
+        const completionRate = problems.length > 0 ? Math.round((totalSolved / problems.length) * 100) : 0;
+        const completedTopics = subjectsList.reduce((sum, s) => sum + (s.completedTopics || 0), 0);
+        return { totalSolved, solvedToday, solvedTrend, focusHours, focusLast7Hours: (focusLast7 / 60).toFixed(1), focusTrend, completionRate, completedTopics };
+    }, [data, problems, sessions, subjectsList]);
+
+    const heatmapData = useMemo(() => {
+        const grid = [];
+        const today = new Date();
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - (16 * 7));
+        startDate.setDate(startDate.getDate() - startDate.getDay());
+        const tempDate = new Date(startDate);
+        while (tempDate <= today) {
+            const dateStr = tempDate.toDateString();
+            const solvedCount = problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt).toDateString() === dateStr).length;
+            const studySessions = sessions.filter(s => s.completed && new Date(s.createdAt).toDateString() === dateStr);
+            const studyMins = studySessions.reduce((sum, s) => sum + s.actualTime, 0);
+            const topicsCount = studySessions.filter(s => s.topic).length;
+            const notesRev = notes.filter(n => n.isReviewed && n.updatedAt && new Date(n.updatedAt).toDateString() === dateStr).length;
+            const totalScore = (solvedCount * 4) + (studyMins / 15) + (topicsCount * 3) + (notesRev * 2);
+            let level = 0;
+            if (totalScore > 0 && totalScore <= 3) level = 1;
+            else if (totalScore > 3 && totalScore <= 8) level = 2;
+            else if (totalScore > 8 && totalScore <= 15) level = 3;
+            else if (totalScore > 15) level = 4;
+            grid.push({ date: new Date(tempDate), level, problemsSolved: solvedCount, studyTime: studyMins, topicsCompleted: topicsCount, notesReviewed: notesRev, sessionsCount: studySessions.length });
+            tempDate.setDate(tempDate.getDate() + 1);
+        }
+        return grid;
+    }, [problems, sessions, notes]);
+
+    const heatmapWeeks = useMemo(() => {
+        const weeks = [];
+        let currentWeek = [];
+        heatmapData.forEach((day, index) => {
+            currentWeek.push(day);
+            if (currentWeek.length === 7 || index === heatmapData.length - 1) { weeks.push(currentWeek); currentWeek = []; }
+        });
+        return weeks;
+    }, [heatmapData]);
+
+    const chartData = useMemo(() => {
+        const result = [];
+        const today = new Date();
+        if (timeframe === 'week') {
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(); date.setDate(date.getDate() - i);
+                const dStr = date.toDateString();
+                result.push({
+                    name: date.toLocaleDateString('default', { weekday: 'short' }),
+                    dateLabel: date.toLocaleDateString('default', { month: 'short', day: 'numeric' }),
+                    problemsSolved: problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt).toDateString() === dStr).length,
+                    studyTime: sessions.filter(s => s.completed && new Date(s.createdAt).toDateString() === dStr).reduce((sum, s) => sum + s.actualTime, 0),
+                    focusSessions: sessions.filter(s => s.completed && new Date(s.createdAt).toDateString() === dStr).length
+                });
+            }
+        } else if (timeframe === 'month') {
+            for (let i = 3; i >= 0; i--) {
+                const start = new Date(); start.setDate(today.getDate() - ((i + 1) * 7));
+                const end = new Date(); end.setDate(today.getDate() - (i * 7));
+                result.push({
+                    name: `Wk -${i}`,
+                    dateLabel: `${start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('default', { day: 'numeric' })}`,
+                    problemsSolved: problems.filter(p => p.status === 'solved' && p.solvedAt && new Date(p.solvedAt) >= start && new Date(p.solvedAt) <= end).length,
+                    studyTime: Math.round(sessions.filter(s => s.completed && new Date(s.createdAt) >= start && new Date(s.createdAt) <= end).reduce((sum, s) => sum + s.actualTime, 0)),
+                    focusSessions: sessions.filter(s => s.completed && new Date(s.createdAt) >= start && new Date(s.createdAt) <= end).length
+                });
+            }
+        } else {
+            for (let i = 5; i >= 0; i--) {
+                const date = new Date(); date.setMonth(today.getMonth() - i);
+                const monthNum = date.getMonth(); const yearNum = date.getFullYear();
+                result.push({
+                    name: date.toLocaleDateString('default', { month: 'short' }),
+                    dateLabel: date.toLocaleDateString('default', { month: 'long', year: 'numeric' }),
+                    problemsSolved: problems.filter(p => { if (p.status !== 'solved' || !p.solvedAt) return false; const d = new Date(p.solvedAt); return d.getMonth() === monthNum && d.getFullYear() === yearNum; }).length,
+                    studyTime: Math.round(sessions.filter(s => { if (!s.completed) return false; const d = new Date(s.createdAt); return d.getMonth() === monthNum && d.getFullYear() === yearNum; }).reduce((sum, s) => sum + s.actualTime, 0)),
+                    focusSessions: sessions.filter(s => { if (!s.completed) return false; const d = new Date(s.createdAt); return d.getMonth() === monthNum && d.getFullYear() === yearNum; }).length
+                });
+            }
+        }
+        return result;
+    }, [timeframe, problems, sessions]);
+
+    const sortedSubjects = useMemo(() => {
+        if (!data || !data.subjectBreakdown) return [];
+        return [...data.subjectBreakdown].map(sub => {
+            const subProblemsSolved = problems.filter(p => p.subject === sub.id && p.status === 'solved').length;
+            const subSessions = sessions.filter(s => s.completed && s.subject?._id === sub.id);
+            const avgFocus = subSessions.length > 0 ? Math.round(subSessions.reduce((sum, s) => sum + s.actualTime, 0) / subSessions.length) : 0;
+            return { ...sub, problemsSolvedCount: subProblemsSolved, avgFocusSession: avgFocus };
+        }).sort((a, b) => (b.progress || 0) - (a.progress || 0));
+    }, [data, problems, sessions]);
+
+    const difficultyData = useMemo(() => {
+        if (!data || !data.problemStats) return [];
+        return [
+            { name: 'Easy', value: data.problemStats.difficulty.Easy || 0, color: '#10B981' },
+            { name: 'Medium', value: data.problemStats.difficulty.Medium || 0, color: '#F59E0B' },
+            { name: 'Hard', value: data.problemStats.difficulty.Hard || 0, color: '#EF4444' }
+        ].filter(d => d.value > 0);
+    }, [data]);
+
+    const learningScore = useMemo(() => {
+        if (!data || problems.length === 0) return 0;
+        const last30Days = heatmapData.slice(-30);
+        const activeDays = last30Days.filter(day => day.problemsSolved > 0 || day.studyTime > 0).length;
+        const consistencyScore = Math.min(100, (activeDays / 20) * 100);
+        const solvedLast30 = last30Days.reduce((sum, day) => sum + day.problemsSolved, 0);
+        const practiceScore = Math.min(100, (solvedLast30 / 15) * 100);
+        const focusMinsLast30 = last30Days.reduce((sum, day) => sum + day.studyTime, 0);
+        const studyTimeScore = Math.min(100, ((focusMinsLast30 / 60) / 20) * 100);
+        const completionScore = data.subjects.progressPercentage || 0;
+        const sessionsLast30 = last30Days.reduce((sum, day) => sum + day.sessionsCount, 0);
+        const focusBlocksScore = Math.min(100, (sessionsLast30 / 20) * 100);
+        return Math.min(100, Math.max(0, Math.round(consistencyScore * 0.3 + practiceScore * 0.25 + studyTimeScore * 0.15 + completionScore * 0.2 + focusBlocksScore * 0.1)));
+    }, [data, problems, heatmapData]);
+
+    const learningInsights = useMemo(() => {
+        if (!data || problems.length === 0) return [];
+        const insights = [];
+        if (statsSummary?.solvedTrend > 0) insights.push({ type: 'positive', text: `You solved ${statsSummary.solvedTrend}% more coding problems this week vs last week. Excellent consistency!` });
+        const dayFocusTimes = Array(7).fill(0);
+        sessions.filter(s => s.completed).forEach(s => { dayFocusTimes[new Date(s.createdAt).getDay()] += s.actualTime; });
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const maxDayIndex = dayFocusTimes.indexOf(Math.max(...dayFocusTimes));
+        if (dayFocusTimes[maxDayIndex] > 0) insights.push({ type: 'schedule', text: `${days[maxDayIndex]} is your strongest study day. You log the highest focused minutes on this day.` });
+        const inProgressSubjects = sortedSubjects.filter(s => s.progress > 0 && s.progress < 100);
+        if (inProgressSubjects.length > 0) insights.push({ type: 'subject', text: `${inProgressSubjects[0].name} is your highest progressing subject. You've completed ${inProgressSubjects[0].progress}% of its syllabus.` });
+        if (statsSummary?.focusTrend > 0) insights.push({ type: 'time', text: `Your focus block study duration increased by ${statsSummary.focusTrend}% compared to last week.` });
+        if (insights.length === 0) insights.push({ type: 'tip', text: "Your productivity analytics insights will appear here as you log study sessions and solve queue items." });
+        return insights.slice(0, 3);
+    }, [data, problems, sortedSubjects, statsSummary, sessions]);
+
+    const achievements = useMemo(() => {
+        if (!data || !data.streaks) return [];
+        const solvedCount = problems.filter(p => p.status === 'solved').length;
+        const totalFocusSessions = sessions.filter(s => s.completed).length;
+        return [
+            { id: 'streak-7', title: '7 Day Streak', desc: 'Maintain consistency for 7 days in a row.', icon: '🔥', unlocked: data.streaks.longestStreak >= 7, meta: `${Math.min(7, data.streaks.longestStreak)}/7 days` },
+            { id: 'streak-30', title: '30 Day Streak', desc: 'A solid month of continuous learning.', icon: '👑', unlocked: data.streaks.longestStreak >= 30, meta: `${Math.min(30, data.streaks.longestStreak)}/30 days` },
+            { id: 'problems-10', title: 'Practice Initiate', desc: 'Solve 10 coding problems in the practice queue.', icon: '💻', unlocked: solvedCount >= 10, meta: `${solvedCount}/10 solved` },
+            { id: 'problems-50', title: 'Algorithm Expert', desc: 'Solve 50 coding problems overall.', icon: '🚀', unlocked: solvedCount >= 50, meta: `${solvedCount}/50 solved` },
+            { id: 'subject-master', title: 'Subject Master', desc: 'Reach 100% completion on at least one subject.', icon: '🎓', unlocked: subjectsList.some(s => s.progressPercentage === 100), meta: subjectsList.some(s => s.progressPercentage === 100) ? 'Completed!' : '0/1 subjects' },
+            { id: 'focus-champion', title: 'Focus Champion', desc: 'Complete 10 focused study blocks.', icon: '⏱️', unlocked: totalFocusSessions >= 10, meta: `${totalFocusSessions}/10 blocks` }
+        ];
+    }, [data, problems, sessions, subjectsList]);
+
+    const recentActivity = useMemo(() => {
+        const feed = [];
+        problems.filter(p => p.status === 'solved' && p.solvedAt).forEach(p => feed.push({ id: p._id + '-solved', date: new Date(p.solvedAt), type: 'problem', title: `Solved ${p.title}`, desc: `Platform: ${p.platform} (${p.difficulty} difficulty)` }));
+        sessions.filter(s => s.completed).forEach(s => feed.push({ id: s._id + '-session', date: new Date(s.createdAt), type: 'focus', title: `Focus Block Completed`, desc: `Subject: ${s.subject?.name || 'General'} (${s.actualTime} minutes log)` }));
+        notes.forEach(n => {
+            if (n.createdAt) feed.push({ id: n._id + '-created', date: new Date(n.createdAt), type: 'note-create', title: `Note Created`, desc: `Captured "${n.title}" check card` });
+            if (n.isReviewed && n.updatedAt) feed.push({ id: n._id + '-reviewed', date: new Date(n.updatedAt), type: 'note-review', title: `Note Reviewed`, desc: `Marked "${n.title}" revision complete` });
+        });
+        return feed.sort((a, b) => b.date - a.date).slice(0, 6);
+    }, [problems, sessions, notes]);
 
     if (loading) {
         return (
-            <div className="w-full px-6 py-8 font-sans bg-white min-h-screen space-y-8">
-                {/* Skeleton header */}
-                <div className="flex justify-between items-center animate-pulse">
-                    <div className="space-y-2">
-                        <div className="h-6 w-48 bg-zinc-100 rounded-md"></div>
-                        <div className="h-4 w-32 bg-zinc-50 rounded-md"></div>
-                    </div>
-                    <div className="h-10 w-40 bg-zinc-100 rounded-lg"></div>
+            <div className="w-full px-6 lg:px-8 py-8 font-sans bg-white min-h-screen space-y-8 animate-pulse">
+                <div className="flex justify-between items-center pb-5 border-b border-zinc-200/50">
+                    <div className="space-y-2"><div className="h-6 w-32 bg-zinc-100 rounded"></div><div className="h-4 w-48 bg-zinc-50 rounded"></div></div>
+                    <div className="h-10 w-24 bg-zinc-100 rounded-lg"></div>
                 </div>
-                {/* Skeleton grid */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                    {[...Array(6)].map((_, i) => (
-                        <div key={i} className="h-28 bg-zinc-50 rounded-xl border border-zinc-100 animate-pulse"></div>
-                    ))}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => <div key={i} className="h-28 bg-zinc-50 border border-zinc-200/40 rounded-2xl"></div>)}
                 </div>
-                {/* Skeleton body */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 h-72 bg-zinc-50 rounded-xl border border-zinc-100 animate-pulse"></div>
-                    <div className="h-72 bg-zinc-50 rounded-xl border border-zinc-100 animate-pulse"></div>
+                <div className="grid grid-cols-12 gap-6">
+                    <div className="col-span-12 lg:col-span-8 h-80 bg-zinc-50 border border-zinc-200/40 rounded-2xl"></div>
+                    <div className="col-span-12 lg:col-span-4 h-80 bg-zinc-50 border border-zinc-200/40 rounded-2xl"></div>
                 </div>
             </div>
         );
     }
 
-    if (!data) return <div className="p-10 text-center font-sans">Failed to load data. Ensure your server is active.</div>;
-
-    const { subjects, timeStats, streaks, weeklyStudyPattern, pomodoroStats, problemStats } = data;
-
-    // Chart Colors Matching Premium SaaS Look
-    const DIFFICULTY_COLORS = ['#10B981', '#F59E0B', '#EF4444']; // Easy (Green), Medium (Orange), Hard (Red)
-    
-    const difficultyData = [
-        { name: 'Easy', value: problemStats.difficulty.Easy },
-        { name: 'Medium', value: problemStats.difficulty.Medium },
-        { name: 'Hard', value: problemStats.difficulty.Hard },
-    ].filter(d => d.value > 0);
-
-    // Compute Dynamic Greetings based on current time
-    const getGreeting = () => {
-        const hrs = new Date().getHours();
-        if (hrs < 12) return 'Good Morning';
-        if (hrs < 18) return 'Good Afternoon';
-        return 'Good Evening';
-    };
-
-    // Calculate Weekly Solved Coding Problems for Line Chart
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const getWeeklyProblemsSolved = () => {
-        const result = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dStr = date.toDateString();
-            const count = problems.filter(p => {
-                if (p.status !== 'solved') return false;
-                const solvedDate = p.solvedAt ? new Date(p.solvedAt) : new Date(p.updatedAt);
-                return solvedDate.toDateString() === dStr;
-            }).length;
-            result.push({
-                day: daysOfWeek[date.getDay()],
-                solved: count
-            });
-        }
-        return result;
-    };
-    const weeklyProblemsData = getWeeklyProblemsSolved();
-
-    // Calculate Study Heatmap Data for Last 16 Weeks
-    const generateHeatmapGrid = () => {
-        const today = new Date();
-        const start = new Date();
-        // Start 15 weeks ago, aligned to Sunday
-        start.setDate(today.getDate() - 15 * 7 - today.getDay());
-        start.setHours(0, 0, 0, 0);
-
-        const activityMap = {};
-        
-        sessions.forEach(s => {
-            const dateKey = new Date(s.createdAt).toDateString();
-            activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
-        });
-        problems.forEach(p => {
-            const dateKey = new Date(p.createdAt).toDateString();
-            activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
-        });
-        notes.forEach(n => {
-            const dateKey = new Date(n.createdAt).toDateString();
-            activityMap[dateKey] = (activityMap[dateKey] || 0) + 1;
-        });
-
-        const grid = [];
-        for (let day = 0; day < 7; day++) {
-            const row = [];
-            for (let week = 0; week < 16; week++) {
-                const cellDate = new Date(start);
-                cellDate.setDate(start.getDate() + week * 7 + day);
-                const dateString = cellDate.toDateString();
-                const count = activityMap[dateString] || 0;
-                row.push({
-                    date: cellDate,
-                    count,
-                    isFuture: cellDate > today
-                });
-            }
-            grid.push(row);
-        }
-        return grid;
-    };
-    const heatmapGrid = generateHeatmapGrid();
-
-    // Combine recent data into a custom activity timeline
-    const getRecentTimeline = () => {
-        const list = [];
-        // Problems solved
-        problems.slice(0, 10).forEach(p => {
-            const timestamp = p.solvedAt ? new Date(p.solvedAt) : new Date(p.updatedAt);
-            list.push({
-                id: `problem-${p._id}`,
-                type: 'problem',
-                title: p.status === 'solved' ? `Solved "${p.title}"` : `Reviewed "${p.title}"`,
-                subtitle: `${p.platform} • ${p.difficulty} Difficulty`,
-                timestamp,
-                colorClass: p.difficulty === 'Easy' ? 'bg-emerald-100 text-emerald-800' : p.difficulty === 'Hard' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800',
-                icon: Code
-            });
-        });
-        // Sessions
-        sessions.slice(0, 10).forEach(s => {
-            list.push({
-                id: `session-${s._id}`,
-                type: 'session',
-                title: `Completed Focus block`,
-                subtitle: `${s.actualTime} minutes focused study session`,
-                timestamp: new Date(s.createdAt),
-                colorClass: 'bg-zinc-100 text-zinc-900 border border-zinc-300',
-                icon: Clock
-            });
-        });
-        // Notes
-        notes.slice(0, 10).forEach(n => {
-            list.push({
-                id: `note-${n._id}`,
-                type: n.isRevision ? 'ai_summary' : 'note',
-                title: n.isRevision ? `AI Revision Summary generated` : `Wrote note "${n.title}"`,
-                subtitle: n.isRevision ? `Created a dynamic revision sheet` : `Saved in tags: ${n.tags.join(', ') || 'general'}`,
-                timestamp: new Date(n.createdAt),
-                colorClass: n.isRevision ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-800',
-                icon: n.isRevision ? Sparkles : FileText
-            });
-        });
-
-        // Sort descending
-        return list.sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
-    };
-    const timelineActivities = getRecentTimeline();
+    if (!data || !statsSummary) {
+        return (
+            <div className="w-full px-6 py-8 text-center font-sans text-sm text-zinc-500">
+                <Info className="mx-auto mb-3 text-zinc-400" size={32} />
+                Failed to load analytics dashboard. Please check that the server is active.
+            </div>
+        );
+    }
 
     return (
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 font-sans text-zinc-800 bg-white min-h-screen">
-            
-            {/* Success alert notification */}
-            {successMessage && (
-                <div className="fixed top-4 right-4 z-50 bg-zinc-950 text-white text-xs px-4 py-3 rounded-lg border border-zinc-800 shadow-xl flex items-center gap-2 animate-bounce">
-                    <CheckCircle size={14} className="text-emerald-400 animate-pulse" />
-                    <span>{successMessage}</span>
-                </div>
-            )}
+        <div className="w-full px-6 lg:px-8 py-8 font-sans text-zinc-850 bg-white min-h-screen">
 
-            {/* Top Navigation / Greeting Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pb-6 border-b border-zinc-200/50">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-5 border-b border-zinc-200/50">
                 <div>
-                    <h1 className="text-xl font-semibold tracking-tight text-zinc-900 flex items-center gap-1.5">
-                        {getGreeting()}, {user?.name?.split(' ')[0] || 'Rithika'} <span className="animate-wave inline-block select-none">👋</span>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900 flex items-center gap-2">
+                        <TrendingUp size={22} className="text-zinc-800" /> Dashboard
                     </h1>
-                    <p className="text-xs text-zinc-400 mt-1">Here is a premium overview of your learning track.</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* Quick Add Bar */}
-                    <div className="relative w-full max-w-xs sm:w-60">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        <input
-                            type="text"
-                            placeholder="Quick action (Click or search)..."
-                            readOnly
-                            onClick={() => {
-                                setCommandTab('menu');
-                                setIsCommandPaletteOpen(true);
-                            }}
-                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-lg hover:border-zinc-400 transition-all cursor-pointer outline-none text-zinc-600 shadow-sm"
-                        />
-                    </div>
-
-                    {/* Today's Date */}
-                    <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200/60 rounded-lg bg-zinc-50/50 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider select-none">
-                        <Calendar size={12} />
-                        {new Date().toLocaleDateString('default', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </div>
-
-                    {/* Notifications bell */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                            className="p-2 border border-zinc-200/60 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
-                        >
-                            <Bell size={16} />
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-zinc-950"></span>
-                        </button>
-                        {isNotificationOpen && (
-                            <div className="absolute right-0 mt-2 w-72 bg-white border border-zinc-200 shadow-xl rounded-xl p-4 z-50 text-xs font-sans">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-semibold text-zinc-800">Notifications</h4>
-                                    <button onClick={() => setIsNotificationOpen(false)} className="text-zinc-400 hover:text-zinc-600"><X size={12} /></button>
-                                </div>
-                                <div className="space-y-2 max-h-60 overflow-y-auto">
-                                    <div className="p-2 bg-zinc-50 rounded border border-zinc-100">
-                                        <p className="font-semibold text-zinc-900">Streak at risk!</p>
-                                        <p className="text-[10px] text-zinc-500">Solve a coding problem or complete a focus block to save your streak.</p>
-                                    </div>
-                                    <div className="p-2 bg-zinc-50 rounded border border-zinc-100">
-                                        <p className="font-semibold text-zinc-900">AI summary generated</p>
-                                        <p className="text-[10px] text-zinc-500">Algorithms revision sheet has been completed successfully.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Refresh Data button */}
-                    <button
-                        onClick={fetchData}
-                        className="p-2 border border-zinc-200/60 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer"
-                        title="Refresh Stats"
-                    >
-                        <RefreshCw size={16} />
-                    </button>
-
-                    {/* Profile Avatar */}
-                    <div className="w-8 h-8 rounded-full bg-zinc-950 text-white font-semibold text-xs flex items-center justify-center cursor-pointer select-none" title={user?.email}>
-                        {user?.name?.charAt(0) || 'R'}
-                    </div>
-                </div>
-            </div>
-
-            {/* Premium Stat Cards Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-                
-                {/* 1. Problems Solved */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Solved</span>
-                        <div className="p-1 bg-emerald-50 text-emerald-700 rounded border border-emerald-100">
-                            <CheckCircle size={14} />
-                        </div>
-                    </div>
-                    <div className="text-2xl font-semibold text-zinc-900">{problemStats.solved}</div>
-                    <p className="text-[10px] text-emerald-600 font-semibold mt-1 bg-emerald-50 w-fit px-1 rounded">
-                        {problemStats.solveRate}% solve rate
+                    <p className="text-sm text-zinc-500 mt-1">
+                        Analytics Overview — Track your learning journey with insights across coding, subjects, and focus sessions.
                     </p>
                 </div>
-
-                {/* 2. Problems Pending */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Pending</span>
-                        <div className="p-1 bg-amber-50 text-amber-600 rounded border border-amber-100">
-                            <Activity size={14} />
-                        </div>
+                <div className="flex items-center gap-3.5">
+                    <div className="flex bg-zinc-100 p-0.8 border border-zinc-200/30 rounded-lg select-none">
+                        {['week', 'month', 'year'].map(t => (
+                            <button key={t} onClick={() => setTimeframe(t)}
+                                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${timeframe === t ? 'bg-zinc-950 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}>
+                                {t}
+                            </button>
+                        ))}
                     </div>
-                    <div className="text-2xl font-semibold text-zinc-900">
-                        {Math.max(0, problemStats.total - problemStats.solved)}
-                    </div>
-                    <p className="text-[10px] text-zinc-400 mt-1">Problems in backlog</p>
-                </div>
-
-                {/* 3. Current Streak */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Streak</span>
-                        <div className="p-1 bg-orange-50 text-orange-600 rounded border border-orange-100">
-                            <Flame size={14} />
-                        </div>
-                    </div>
-                    <div className="text-2xl font-semibold text-zinc-900">{streaks.currentStreak} days</div>
-                    <p className="text-[10px] text-zinc-400 mt-1">Best streak: {streaks.longestStreak} days</p>
-                </div>
-
-                {/* 4. Focus Time */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Focus Time</span>
-                        <div className="p-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">
-                            <Clock size={14} />
-                        </div>
-                    </div>
-                    <div className="text-2xl font-semibold text-zinc-900">
-                        {Math.floor(timeStats.totalTimeSpent / 60)}h {timeStats.totalTimeSpent % 60}m
-                    </div>
-                    <p className="text-[10px] text-zinc-400 mt-1">{timeStats.averageDailyTime}m daily average</p>
-                </div>
-
-                {/* 5. Active Subjects */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Subjects</span>
-                        <div className="p-1 bg-zinc-100 text-zinc-900 rounded border border-zinc-200/50">
-                            <BookOpen size={14} />
-                        </div>
-                    </div>
-                    <div className="text-2xl font-semibold text-zinc-900">{subjects.totalSubjects}</div>
-                    <p className="text-[10px] text-zinc-400 mt-1">Active categories</p>
-                </div>
-
-                {/* 6. Weekly Progress */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm hover:shadow-md/5 transition-all">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Overall Progress</span>
-                        <div className="p-1 bg-zinc-950 text-white rounded">
-                            <Brain size={14} />
-                        </div>
-                    </div>
-                    <div className="text-2xl font-semibold text-zinc-900">{subjects.progressPercentage}%</div>
-                    {/* Tiny Progress Bar */}
-                    <div className="w-full bg-zinc-100 h-1.5 rounded-full mt-2 overflow-hidden border border-zinc-200/20">
-                        <div className="bg-zinc-900 h-full rounded-full" style={{ width: `${subjects.progressPercentage}%` }}></div>
+                    <div className="hidden md:block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest bg-zinc-50 px-3 py-2 border border-zinc-200/60 rounded-lg">
+                        UPDATED: {new Date().toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                 </div>
-
             </div>
 
-            {/* Analytics Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                
-                {/* 1. Weekly Problems Solved Line Chart */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Code size={14} className="text-zinc-900" /> Weekly Problems Solved
-                        </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className={`${cardShell} group relative overflow-hidden p-5 bg-gradient-to-br from-white via-zinc-50/80 to-zinc-100/50`}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-zinc-950/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Problems Solved</span>
+                        <div className="bg-zinc-100 text-zinc-700 rounded-xl p-2 border border-zinc-200/70"><Code size={16} /></div>
                     </div>
-                    <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={weeklyProblemsData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorSolved" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#18181b" stopOpacity={0.1}/>
-                                        <stop offset="95%" stopColor="#18181b" stopOpacity={0.0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} allowDecimals={false} />
-                                <Tooltip
-                                    contentStyle={{ background: '#18181b', border: 'none', borderRadius: '8px', padding: '6px 10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    labelStyle={{ color: '#a1a1aa', fontSize: '9px', fontWeight: 'bold' }}
-                                    itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}
-                                />
-                                <Area type="monotone" dataKey="solved" stroke="#18181b" strokeWidth={2} fillOpacity={1} fill="url(#colorSolved)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    <div className="relative text-2xl font-extrabold text-zinc-900 mt-3">{statsSummary.totalSolved}</div>
+                    <div className="relative flex items-center gap-1 mt-2 text-[10px] font-semibold">
+                        <span className={statsSummary.solvedTrend >= 0 ? "text-emerald-600" : "text-rose-600"}>{statsSummary.solvedTrend >= 0 ? '↑' : '↓'} {Math.abs(statsSummary.solvedTrend)}%</span>
+                        <span className="text-zinc-400">vs last week</span>
                     </div>
                 </div>
-
-                {/* 2. Difficulty Distribution Donut Chart */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm flex flex-col justify-between">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Brain size={14} className="text-zinc-900" /> Difficulty Distribution
-                    </h3>
-                    <div className="flex items-center justify-between gap-4 mt-2">
-                        {difficultyData.length === 0 ? (
-                            <div className="flex-1 text-center py-6 text-zinc-400 text-xs italic">No coded problems tracked.</div>
-                        ) : (
-                            <>
-                                <div className="h-32 w-32 shrink-0">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={difficultyData}
-                                                innerRadius={28}
-                                                outerRadius={45}
-                                                paddingAngle={4}
-                                                dataKey="value"
-                                            >
-                                                {difficultyData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={DIFFICULTY_COLORS[index % DIFFICULTY_COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip
-                                                contentStyle={{ background: '#18181b', border: 'none', borderRadius: '6px', padding: '4px 8px' }}
-                                                itemStyle={{ color: '#fff', fontSize: '10px' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    {difficultyData.map((d, index) => (
-                                        <div key={d.name} className="flex items-center justify-between text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DIFFICULTY_COLORS[index % DIFFICULTY_COLORS.length] }}></span>
-                                                <span className="text-zinc-500 font-medium">{d.name}</span>
-                                            </div>
-                                            <span className="font-semibold text-zinc-900">{d.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
+                <div className={`${cardShell} group relative overflow-hidden p-5 bg-gradient-to-br from-white via-zinc-50/80 to-zinc-100/50`}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Topics Completed</span>
+                        <div className="bg-zinc-100 text-zinc-700 rounded-xl p-2 border border-zinc-200/70"><Brain size={16} /></div>
+                    </div>
+                    <div className="relative text-2xl font-extrabold text-zinc-900 mt-3">{statsSummary.completedTopics}</div>
+                    <div className="relative flex items-center gap-1 mt-2 text-[10px] font-semibold">
+                        <span className="text-emerald-600">+{statsSummary.solvedToday} today</span>
+                        <span className="text-zinc-400">• solved practice</span>
                     </div>
                 </div>
+                <div className={`${cardShell} group relative overflow-hidden p-5 bg-gradient-to-br from-white via-zinc-50/80 to-zinc-100/50`}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Completion Rate</span>
+                        <div className="bg-zinc-100 text-zinc-700 rounded-xl p-2 border border-zinc-200/70"><CheckCircle size={16} /></div>
+                    </div>
+                    <div className="relative text-2xl font-extrabold text-zinc-900 mt-3">{statsSummary.completionRate}%</div>
+                    <div className="relative flex items-center gap-1 mt-2 text-[10px] font-semibold">
+                        <span className="text-zinc-500">Solved vs total queue items</span>
+                    </div>
+                </div>
+                <div className={`${cardShell} group relative overflow-hidden p-5 bg-gradient-to-br from-white via-zinc-50/80 to-zinc-100/50`}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex justify-between items-center text-zinc-400">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Focus Time</span>
+                        <div className="bg-zinc-100 text-zinc-700 rounded-xl p-2 border border-zinc-200/70"><Clock size={16} /></div>
+                    </div>
+                    <div className="relative text-2xl font-extrabold text-zinc-900 mt-3">{statsSummary.focusHours}h</div>
+                    <div className="relative flex items-center gap-1 mt-2 text-[10px] font-semibold">
+                        <span className={statsSummary.focusTrend >= 0 ? "text-emerald-600" : "text-rose-600"}>{statsSummary.focusTrend >= 0 ? '↑' : '↓'} {Math.abs(statsSummary.focusTrend)}%</span>
+                        <span className="text-zinc-400">vs last week</span>
+                    </div>
+                </div>
+            </div>
 
-                {/* 3. Daily Study Time Chart */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Activity size={14} className="text-zinc-900" /> Daily Study Time
-                    </h3>
-                    <div className="h-44 mt-4">
+            <div className="grid grid-cols-12 gap-6">
+
+                <div className={`col-span-12 lg:col-span-8 ${sectionShell} p-6`}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 select-none">
+                        <div>
+                            <h3 className="font-bold text-[11px] text-zinc-400 uppercase tracking-[0.24em]">Study Performance Trends</h3>
+                            <p className="text-[10px] text-zinc-500 mt-1">Problems solved and study duration over selected timeframe.</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-[10px] font-bold">
+                            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-zinc-950 rounded-sm"></span><span className="text-zinc-650">Solve Count</span></div>
+                            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 bg-zinc-200 rounded-sm"></span><span className="text-zinc-650">Minutes Studied</span></div>
+                        </div>
+                    </div>
+                    <div className="h-72 sm:h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyStudyPattern} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} />
-                                <Tooltip
-                                    contentStyle={{ background: '#18181b', border: 'none', borderRadius: '8px', padding: '6px 10px' }}
-                                    labelStyle={{ color: '#a1a1aa', fontSize: '9px', fontWeight: 'bold' }}
-                                    itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}
-                                    formatter={(value) => [`${value} minutes`, 'Time Spent']}
-                                />
-                                <Bar dataKey="minutes" fill="#18181b" radius={[4, 4, 0, 0]} barSize={16} />
+                                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: '#a1a1aa', fontSize: 10, fontWeight: 'bold' }} />
+                                <YAxis yAxisId="left" orientation="left" tickLine={false} axisLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} />
+                                <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fill: '#d4d4d8', fontSize: 10 }} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f4f4f5', opacity: 0.5 }} />
+                                <Bar yAxisId="left" dataKey="problemsSolved" fill="#18181b" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                                <Bar yAxisId="right" dataKey="studyTime" fill="#e4e4e7" radius={[4, 4, 0, 0]} maxBarSize={30} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-            </div>
-
-            {/* Study Heatmap Grid */}
-            <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm mb-8 overflow-x-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <Sparkles size={14} className="text-zinc-900" /> Study Heatmap
-                        </h3>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Visual representation of daily activities (problems solved, notes, focus sessions) over the last 16 weeks.</p>
+                <div className={`col-span-12 lg:col-span-4 ${cardShell} p-5 flex flex-col bg-gradient-to-br from-white via-zinc-50/80 to-zinc-100/50`}>
+                    <h4 className="font-bold text-[11px] text-zinc-900 uppercase tracking-[0.24em] select-none flex items-center gap-1.5 w-full pb-2 border-b border-zinc-100 flex-shrink-0">
+                        <Activity size={14} className="text-zinc-800 animate-pulse" /> Learning Score
+                    </h4>
+                    <div className="flex-1 flex flex-col items-center justify-center gap-5 py-4">
+                        <div className="relative w-40 h-40 flex items-center justify-center select-none">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 144 144">
+                                <circle cx="72" cy="72" r="58" className="text-zinc-100 stroke-current" strokeWidth="9" fill="none" />
+                                <circle cx="72" cy="72" r="58" className="text-zinc-950 stroke-current transition-all duration-1000 ease-out" strokeWidth="9" fill="none"
+                                    strokeDasharray={364.4} strokeDashoffset={364.4 - (364.4 * learningScore) / 100} strokeLinecap="round" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center font-sans">
+                                <span className="text-4xl font-black tracking-tight text-zinc-900 leading-none">{learningScore}</span>
+                                <span className="text-[10px] font-bold text-zinc-400 mt-1.5 uppercase tracking-widest">Level Score</span>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 text-center leading-relaxed max-w-[200px]">
+                            Weighted from consistency, practice frequency, focus blocks, and subject completion—kept live as your activity changes.
+                        </p>
                     </div>
                 </div>
-                
-                <div className="flex items-start gap-2 select-none min-w-[560px]">
-                    {/* Days indicator */}
-                    <div className="grid grid-rows-7 gap-1 text-[9px] text-zinc-400 font-semibold pt-4 pr-1">
-                        <span>Su</span>
-                        <span>Mo</span>
-                        <span>Tu</span>
-                        <span>We</span>
-                        <span>Th</span>
-                        <span>Fr</span>
-                        <span>Sa</span>
+
+                <div className={`col-span-12 lg:col-span-6 ${cardShell} p-5 space-y-4`}>
+                    <h3 className="font-bold text-[11px] text-zinc-900 uppercase tracking-[0.24em] select-none flex items-center gap-1.5 pb-2 border-b border-zinc-150/40">
+                        <BookOpen size={14} className="text-zinc-400" /> Subject Analytics
+                    </h3>
+                    {sortedSubjects.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 py-10 text-center text-xs text-zinc-500 font-medium select-none">
+                            <BookOpen size={18} className="text-zinc-300" />No subjects logged yet.
+                        </div>
+                    ) : (
+                        <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                            {sortedSubjects.map(sub => (
+                                <div key={sub.name} className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-3 transition-all duration-200 hover:border-zinc-200 hover:bg-white">
+                                    <div className="flex justify-between items-center text-xs font-semibold text-zinc-800 gap-3">
+                                        <span className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-base select-none">{sub.icon || '📚'}</span>
+                                            <span className="truncate">{sub.name}</span>
+                                        </span>
+                                        <span>{sub.progress || 0}% Complete</span>
+                                    </div>
+                                    <div className="mt-2.5 h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${sub.progress || 0}%`, backgroundColor: sub.color || '#18181b' }}></div>
+                                    </div>
+                                    <div className="mt-2 flex justify-between text-[9px] font-bold text-zinc-400 uppercase tracking-wide">
+                                        <span>{sub.problemsSolvedCount} coding solved</span>
+                                        <span>{sub.avgFocusSession}m avg session</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className={`col-span-12 lg:col-span-6 ${cardShell} p-5 flex flex-col`}>
+                    <h3 className="font-bold text-xs text-zinc-900 uppercase tracking-wider select-none flex items-center gap-1.5 pb-2 border-b border-zinc-150/40">
+                        <Code size={14} className="text-zinc-400" /> Difficulty Breakdown
+                    </h3>
+                    {difficultyData.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 py-16 text-center text-xs text-zinc-500 font-medium select-none mt-4">
+                            <Code size={22} className="text-zinc-300" />Complete your first coding problem to unlock difficulty analytics.
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col justify-center items-center py-4">
+                            <div className="h-44 w-full relative flex items-center justify-center">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={difficultyData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value">
+                                            {difficultyData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                        </Pie>
+                                        <Tooltip content={<DifficultyTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute text-center select-none font-sans">
+                                    <p className="text-2xl font-black text-zinc-900 leading-none">{difficultyData.reduce((sum, d) => sum + d.value, 0)}</p>
+                                    <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Solved</p>
+                                </div>
+                            </div>
+                            <div className="flex justify-center gap-4 text-[10px] font-bold mt-4 w-full border-t border-zinc-100 pt-3">
+                                {difficultyData.map(d => (
+                                    <div key={d.name} className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></span>
+                                        <span className="text-zinc-650">{d.name} ({d.value})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className={`col-span-12 lg:col-span-8 ${cardShell} p-5 space-y-4`}>
+                    <div className="flex justify-between items-center select-none pb-2 border-b border-zinc-100">
+                        <h4 className="font-bold text-xs text-zinc-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Activity size={14} className="text-zinc-650" /> Consistency Map
+                        </h4>
+                        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Last 16 Weeks</span>
                     </div>
+                    <div className="overflow-x-auto pb-1">
+                        <div className="flex gap-1">
+                            {heatmapWeeks.map((week, wIdx) => (
+                                <div key={wIdx} className="flex flex-col gap-1">
+                                    {week.map((day, dIdx) => {
+                                        const levelColors = ['bg-zinc-100 border-zinc-200/30 hover:border-zinc-400','bg-zinc-300 border-zinc-350 hover:bg-zinc-400','bg-zinc-600 border-zinc-650 hover:bg-zinc-700','bg-zinc-800 border-zinc-850 hover:bg-zinc-900','bg-zinc-950 border-zinc-950 hover:scale-105'];
+                                        const isSelected = selectedDate && day.date.toDateString() === selectedDate.toDateString();
+                                        return (
+                                            <button key={dIdx} onClick={() => setSelectedDate(day.date)}
+                                                onMouseEnter={() => setHeatmapHoverData(day)} onMouseLeave={() => setHeatmapHoverData(null)}
+                                                aria-label={`View activity for ${day.date.toDateString()}`}
+                                                className={`w-3.5 h-3.5 rounded border transition-all duration-150 cursor-pointer hover:-translate-y-[1px] ${isSelected ? 'ring-2 ring-zinc-950 scale-105 border-transparent z-10 shadow-sm' : levelColors[day.level]}`}
+                                                title={day.date.toDateString()} />
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="h-10 flex items-center justify-center text-[10px] text-zinc-400 border-t border-zinc-50 pt-2 font-semibold">
+                        {heatmapHoverData ? (
+                            <div className="text-zinc-700 animate-fade-in flex gap-2 select-none">
+                                <span>{heatmapHoverData.date.toLocaleDateString('default', { month: 'short', day: 'numeric' })}:</span>
+                                <strong>{heatmapHoverData.problemsSolved} problems</strong>
+                                <span>•</span>
+                                <strong>{heatmapHoverData.studyTime} mins focus</strong>
+                            </div>
+                        ) : (
+                            <span className="select-none">Hover cells for daily stats • Click to select date</span>
+                        )}
+                    </div>
+                </div>
 
-                    {/* Heatmap cells */}
-                    <div className="flex-1 flex flex-col gap-1.5">
-                        {heatmapGrid.map((row, rowIndex) => (
-                            <div key={rowIndex} className="flex gap-1.5">
-                                {row.map((cell, colIndex) => {
-                                    // Colors density
-                                    let colorClass = 'bg-zinc-100 hover:bg-zinc-200';
-                                    if (cell.count === 1) colorClass = 'bg-indigo-100 hover:bg-indigo-200 border border-indigo-200/30';
-                                    else if (cell.count === 2) colorClass = 'bg-indigo-300 hover:bg-indigo-400';
-                                    else if (cell.count === 3) colorClass = 'bg-indigo-500 hover:bg-indigo-600';
-                                    else if (cell.count >= 4) colorClass = 'bg-indigo-700 hover:bg-indigo-800';
-
-                                    if (cell.isFuture) colorClass = 'bg-zinc-50/50 opacity-40 cursor-default';
-
-                                    return (
-                                        <div
-                                            key={colIndex}
-                                            className={`w-3.5 h-3.5 rounded transition-all duration-150 relative group cursor-pointer ${colorClass}`}
-                                            title={`${cell.count} activities on ${cell.date.toDateString()}`}
-                                        >
-                                            {/* Hover tooltip overlay */}
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-zinc-950 text-white text-[9px] px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                                                {cell.count} activities on {cell.date.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                <div className={`col-span-12 lg:col-span-4 ${cardShell} p-5 space-y-4`}>
+                    <h4 className="font-bold text-[11px] text-zinc-900 uppercase tracking-[0.24em] select-none flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-zinc-800" /> Learning Insights
+                    </h4>
+                    <div className="space-y-3">
+                        {learningInsights.map((insight, idx) => (
+                            <div key={idx} className="bg-gradient-to-r from-zinc-50 to-white border border-zinc-150/70 p-3 rounded-xl flex gap-3 text-xs leading-relaxed text-zinc-650 font-medium transition-all duration-200 hover:border-zinc-200 hover:shadow-sm">
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-950 text-white text-[10px] font-black select-none flex-shrink-0">{idx + 1}</div>
+                                <p>{insight.text}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-1.5 text-[9px] font-semibold text-zinc-400 mt-3 pr-2">
-                    <span>Less</span>
-                    <span className="w-3.5 h-3.5 rounded bg-zinc-100"></span>
-                    <span className="w-3.5 h-3.5 rounded bg-indigo-100"></span>
-                    <span className="w-3.5 h-3.5 rounded bg-indigo-300"></span>
-                    <span className="w-3.5 h-3.5 rounded bg-indigo-500"></span>
-                    <span className="w-3.5 h-3.5 rounded bg-indigo-700"></span>
-                    <span>More</span>
-                </div>
-            </div>
-
-            {/* Bottom Grid: Activity Calendar + Timeline */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                {/* 1. Activity Calendar Details */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="col-span-12 lg:col-span-6">
                     <ActivityCalendar selectedDate={selectedDate} onDateSelect={setSelectedDate} />
-                    
-                    {/* Daily activity lists based on selectedDate */}
-                    <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm">
-                        <div className="flex justify-between items-center mb-4 border-b border-zinc-100 pb-3">
-                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                                Activities on {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' })}
-                            </h3>
-                            {dailyActivity.length > 0 && (
-                                <span className="text-[10px] font-semibold bg-zinc-950 text-white px-2 py-0.5 rounded-full shadow-sm">
-                                    {dailyActivity.length} subject{dailyActivity.length > 1 ? 's' : ''} active
-                                </span>
-                            )}
+                </div>
+
+                <div className="col-span-12 lg:col-span-6 bg-[#111111] text-zinc-100 rounded-2xl p-6 border border-zinc-800/80 shadow-2xl flex flex-col justify-between min-h-[460px]">
+                    <div className="flex justify-between items-baseline pb-3.5 border-b border-zinc-800/70">
+                        <h4 className="font-bold text-xs text-zinc-100 uppercase tracking-wider select-none">Daily Summary</h4>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                            {selectedDate.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 my-4">
+                        <div className="bg-[#161616] p-3.5 rounded-xl border border-zinc-800/50 hover:border-zinc-700/60 transition-colors">
+                            <p className="text-xl font-extrabold text-zinc-100 tracking-tight">{dailySummary.problemsSolved}</p>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Problems Solved</p>
                         </div>
+                        <div className="bg-[#161616] p-3.5 rounded-xl border border-zinc-800/50 hover:border-zinc-700/60 transition-colors">
+                            <p className="text-xl font-extrabold text-zinc-100 tracking-tight">{dailySummary.studyTime}m</p>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Study Time</p>
+                        </div>
+                        <div className="bg-[#161616] p-3.5 rounded-xl border border-zinc-800/50 hover:border-zinc-700/60 transition-colors">
+                            <p className="text-xl font-extrabold text-zinc-100 tracking-tight">{dailySummary.sessionsCount}</p>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Focus Sessions</p>
+                        </div>
+                        <div className="bg-[#161616] p-3.5 rounded-xl border border-zinc-800/50 hover:border-zinc-700/60 transition-colors">
+                            <p className="text-xl font-extrabold text-zinc-100 tracking-tight">{dailySummary.notesReviewed}</p>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Notes Reviewed</p>
+                        </div>
+                    </div>
 
-                        {loadingDaily ? (
-                            <div className="flex justify-center py-10 animate-pulse"><div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-900 border-t-transparent"></div></div>
-                        ) : dailyActivity.length === 0 ? (
-                            <div className="text-center py-10 text-zinc-400 text-xs italic bg-zinc-50/50 border border-dashed border-zinc-200 rounded-xl">
-                                No study logs or topics tracked on this day.
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {dailyActivity.map((activity, idx) => (
-                                    <div key={idx} className="bg-zinc-50 border border-zinc-200/50 p-4 rounded-xl flex flex-col justify-between hover:border-zinc-300 transition-colors">
-                                        <div>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xl select-none">{activity.subjectIcon || '📚'}</span>
-                                                    <div>
-                                                        <span className="font-semibold text-xs text-zinc-800 block leading-tight">{activity.subjectName}</span>
-                                                        <span className="text-[10px] text-zinc-400 font-medium">
-                                                            {activity.topicsCompleted.length} / {activity.dailyTarget || 1} topics completed
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-zinc-900 bg-white border border-zinc-200 px-2 py-1 rounded shadow-sm">
-                                                    {activity.timeSpent}m
-                                                </span>
-                                            </div>
-                                            
-                                            {/* Progress Bar */}
-                                            <div className="w-full bg-zinc-200/60 rounded-full h-1 mt-2 mb-3 overflow-hidden">
-                                                <div
-                                                    className="h-full bg-zinc-950 rounded-full"
-                                                    style={{ width: `${Math.min((activity.topicsCompleted.length / (activity.dailyTarget || 1)) * 100, 100)}%` }}
-                                                ></div>
-                                            </div>
+                    <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400">
+                            <span className="tracking-wide uppercase">Today's Progress</span>
+                            <span className="text-zinc-200">{todayStats.todayProgressPercentage}%</span>
+                        </div>
+                        <div className="w-full bg-zinc-800/50 rounded-full h-2 overflow-hidden border border-zinc-800/20">
+                            <div
+                                className="h-full rounded-full bg-[#4F7DF3] transition-all duration-500 ease-out"
+                                style={{ width: `${todayStats.todayProgressPercentage}%` }}
+                            />
+                        </div>
+                    </div>
 
-                                            {activity.topicsCompleted.length > 0 ? (
-                                                <div className="space-y-1 mt-2 pt-2 border-t border-zinc-200/30">
-                                                    {activity.topicsCompleted.map((topic, tIdx) => (
-                                                        <div key={tIdx} className="text-[11px] text-zinc-600 flex items-center gap-1.5">
-                                                            <CheckCircle size={10} className="text-emerald-500 shrink-0" />
-                                                            <span className="truncate">{topic}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] text-zinc-400 italic">No topics marked complete yet.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                    <div className="flex justify-between items-center bg-[#161616]/45 border border-zinc-800/40 p-3 rounded-xl text-xs mt-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Estimated Remaining</span>
+                        </div>
+                        <span className="font-extrabold text-zinc-200">{formatTime(todayStats.remainingStudyTime)}</span>
+                    </div>
+
+                    <div className="bg-[#161616]/30 border border-zinc-800/30 rounded-xl p-3 text-xs leading-relaxed text-zinc-300 font-medium mt-3 flex items-start gap-2.5">
+                        <span className="text-sm select-none shrink-0">💡</span>
+                        <p className="text-[11px] text-zinc-300">{getDailyInsight()}</p>
                     </div>
                 </div>
 
-                {/* 2. Recent Activity Timeline */}
-                <div className="bg-white border border-zinc-200/60 rounded-xl p-5 shadow-sm h-fit">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 pb-3 border-b border-zinc-100 flex items-center gap-1.5">
-                        <Activity size={14} className="text-zinc-900" /> Recent Activity
-                    </h3>
-                    
-                    {timelineActivities.length === 0 ? (
-                        <div className="text-center py-10 text-zinc-400 text-xs italic bg-zinc-50/50 border border-dashed border-zinc-200 rounded-xl">
-                            No recent activity found. Click Quick Add to start tracking.
+                <div className={`col-span-12 lg:col-span-6 ${cardShell} p-5 space-y-4`}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between select-none pb-2 border-b border-zinc-100">
+                        <h4 className="font-bold text-[11px] text-zinc-900 uppercase tracking-[0.24em] flex items-center gap-1.5">
+                            <Award size={14} className="text-zinc-650" /> Accomplishments
+                        </h4>
+                        <span className="text-[9px] font-bold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-md">
+                            {achievements.filter(a => a.unlocked).length} / {achievements.length} Unlocked
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        {achievements.map((ach) => (
+                            <div key={ach.id}
+                                className={`flex flex-col items-center text-center p-2.5 rounded-xl border transition-all select-none hover:-translate-y-0.5 ${ach.unlocked ? 'bg-gradient-to-b from-zinc-50 to-white border-zinc-200 shadow-sm' : 'bg-zinc-50/20 border-zinc-150/40 opacity-40 grayscale'}`}
+                                title={`${ach.title}: ${ach.desc}`}>
+                                <span className="text-2xl mb-1.5">{ach.icon}</span>
+                                <h5 className="text-[9px] font-bold text-zinc-900 truncate max-w-[86px] leading-tight">{ach.title}</h5>
+                                <span className="text-[8px] font-semibold text-zinc-400 mt-1 uppercase tracking-wide">{ach.meta}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className={`col-span-12 lg:col-span-6 ${cardShell} p-5 space-y-4`}>
+                    <h4 className="font-bold text-[11px] text-zinc-900 uppercase tracking-[0.24em] select-none flex items-center gap-1.5">
+                        <Activity size={14} className="text-zinc-650" /> Activity Timeline
+                    </h4>
+                    {recentActivity.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 py-8 text-center text-xs text-zinc-500 font-medium select-none">
+                            <Activity size={18} className="text-zinc-300" />No recent activity logged yet.
                         </div>
                     ) : (
-                        <div className="relative pl-4 border-l border-zinc-200/80 space-y-6">
-                            {timelineActivities.map((act) => {
-                                const ActIcon = act.icon;
-                                return (
-                                    <div key={act.id} className="relative font-sans text-xs">
-                                        {/* Dot Indicator */}
-                                        <div className="absolute left-[-22px] top-0.5 w-3 h-3 rounded-full bg-white border-2 border-zinc-950 flex items-center justify-center">
-                                            <span className="w-1 h-1 rounded-full bg-zinc-950"></span>
-                                        </div>
-                                        
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className="font-semibold text-zinc-900 leading-tight">{act.title}</p>
-                                                <p className="text-[10px] text-zinc-400 mt-0.5">{act.subtitle}</p>
-                                            </div>
-                                            <span className="text-[9px] text-zinc-400 whitespace-nowrap">
-                                                {act.timestamp.toLocaleDateString('default', { month: 'short', day: 'numeric' })}
-                                            </span>
-                                        </div>
-                                        
-                                        {/* Tags or metadata display */}
-                                        <div className="mt-1.5 flex items-center gap-1.5">
-                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${act.colorClass}`}>
-                                                {act.type.toUpperCase().replace('_', ' ')}
-                                            </span>
-                                            {act.type === 'problem' && (
-                                                <span className="text-[9px] text-zinc-400 italic">Attempts: {act.meta?.attempts || 1}</span>
-                                            )}
-                                        </div>
+                        <div className="space-y-3">
+                            {recentActivity.map((act) => (
+                                <div key={act.id} className="group flex gap-3 text-xs leading-relaxed border-l-2 border-zinc-100 pl-3.5 relative transition-all duration-200 hover:border-zinc-300">
+                                    <div className="absolute w-2 h-2 rounded-full bg-zinc-900 left-[-5px] top-1.5 group-hover:scale-125 transition-transform"></div>
+                                    <div className="space-y-0.5">
+                                        <p className="font-bold text-zinc-900 tracking-tight">{act.title}</p>
+                                        <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-[0.18em] mt-0.5">{act.desc}</p>
+                                        <p className="text-[9px] text-zinc-400 font-medium mt-1">
+                                            {act.date.toLocaleDateString('default', { month: 'short', day: 'numeric' })} at {act.date.toLocaleTimeString('default', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
             </div>
-
-            {/* Quick Add Command Palette Modal Dialog */}
-            {isCommandPaletteOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    
-                    {/* Click backdrop to close */}
-                    <div className="fixed inset-0" onClick={() => setIsCommandPaletteOpen(false)}></div>
-                    
-                    {/* Palette modal content */}
-                    <div className="bg-white border border-zinc-200 shadow-2xl w-full max-w-lg rounded-xl overflow-hidden z-10 animate-scale-in">
-                        
-                        {/* Header search bar prefix */}
-                        <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-zinc-900 font-semibold text-sm">
-                                <Sparkles size={16} className="text-zinc-500" />
-                                <span>Quick Actions Command Center</span>
-                            </div>
-                            <button onClick={() => setIsCommandPaletteOpen(false)} className="text-zinc-400 hover:text-zinc-600 cursor-pointer">
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        {/* Mode Menu / Selection Tab */}
-                        {commandTab === 'menu' && (
-                            <div className="p-2 space-y-1">
-                                <button
-                                    onClick={() => setCommandTab('problem')}
-                                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 text-left transition-colors cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
-                                            <Code size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-zinc-800">Track a Solved Problem</p>
-                                            <p className="text-[10px] text-zinc-400">Instantly save solved coding tasks for practice metrics.</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={14} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                                </button>
-
-                                <button
-                                    onClick={() => setCommandTab('note')}
-                                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 text-left transition-colors cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
-                                            <FileText size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-zinc-800">Scribble / Quick Note</p>
-                                            <p className="text-[10px] text-zinc-400">Save thoughts, quick explanations, or algorithms checklist.</p>
-                                        </div>
-                                    </div>
-                                    <ChevronRight size={14} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                                </button>
-                                
-                                <a
-                                    href="/subjects"
-                                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 text-left transition-colors cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-zinc-100 text-zinc-700 rounded-lg border border-zinc-200">
-                                            <BookOpen size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-zinc-800">Add a Study Subject</p>
-                                            <p className="text-[10px] text-zinc-400">Configure study templates and tracks inside the subjects panel.</p>
-                                        </div>
-                                    </div>
-                                    <ArrowRight size={14} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                                </a>
-
-                                <a
-                                    href="/timer"
-                                    className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-zinc-50 text-left transition-colors cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
-                                            <Clock size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-zinc-800">Start Pomodoro Session</p>
-                                            <p className="text-[10px] text-zinc-400">Redirects to focus timer dashboard to log focus hours.</p>
-                                        </div>
-                                    </div>
-                                    <ArrowRight size={14} className="text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                                </a>
-                            </div>
-                        )}
-
-                        {/* Quick Add Problem Form */}
-                        {commandTab === 'problem' && (
-                            <form onSubmit={handleQuickProblemSubmit} className="p-5 space-y-4">
-                                <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
-                                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Quick Solved Problem Tracker</span>
-                                    <button type="button" onClick={() => setCommandTab('menu')} className="text-xs font-semibold text-zinc-500 hover:text-zinc-950 cursor-pointer">Back</button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Platform</label>
-                                        <select
-                                            value={problemForm.platform}
-                                            onChange={e => setProblemForm({ ...problemForm, platform: e.target.value })}
-                                            className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800"
-                                        >
-                                            {['LeetCode', 'CodeForces', 'HackerRank', 'GeeksforGeeks', 'CodeChef', 'Custom'].map(p => <option key={p} value={p}>{p}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Difficulty</label>
-                                        <select
-                                            value={problemForm.difficulty}
-                                            onChange={e => setProblemForm({ ...problemForm, difficulty: e.target.value })}
-                                            className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800"
-                                        >
-                                            {['Easy', 'Medium', 'Hard'].map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Problem Title</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. Reverse Linked List"
-                                        value={problemForm.title}
-                                        onChange={e => setProblemForm({ ...problemForm, title: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">URL Link</label>
-                                    <input
-                                        type="url"
-                                        required
-                                        placeholder="https://leetcode.com/..."
-                                        value={problemForm.url}
-                                        onChange={e => setProblemForm({ ...problemForm, url: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tags (Comma Separated)</label>
-                                    <input
-                                        type="text"
-                                        placeholder="linked-list, array, dsa"
-                                        value={problemForm.tags}
-                                        onChange={e => setProblemForm({ ...problemForm, tags: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    />
-                                </div>
-
-                                <div className="pt-2">
-                                    <button type="submit" className="w-full py-2 bg-zinc-950 text-white text-xs font-semibold rounded hover:bg-zinc-800 shadow cursor-pointer">
-                                        Add Solved Problem & Refresh
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                        {/* Quick Add Note Form */}
-                        {commandTab === 'note' && (
-                            <form onSubmit={handleQuickNoteSubmit} className="p-5 space-y-4">
-                                <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
-                                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Write a Quick Scribble/Note</span>
-                                    <button type="button" onClick={() => setCommandTab('menu')} className="text-xs font-semibold text-zinc-500 hover:text-zinc-950 cursor-pointer">Back</button>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Note Title</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. Graph BFS Traversal Concept"
-                                        value={noteForm.title}
-                                        onChange={e => setNoteForm({ ...noteForm, title: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Quick Content / Definition</label>
-                                    <textarea
-                                        required
-                                        rows="3"
-                                        placeholder="Wrote BFS algorithm structure: queues are utilized to track adjacent vertices in layer-by-layer order..."
-                                        value={noteForm.content}
-                                        onChange={e => setNoteForm({ ...noteForm, content: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">Tags (Comma Separated)</label>
-                                    <input
-                                        type="text"
-                                        placeholder="algorithms, graphs, concepts"
-                                        value={noteForm.tags}
-                                        onChange={e => setNoteForm({ ...noteForm, tags: e.target.value })}
-                                        className="w-full text-xs px-2.5 py-1.5 border border-zinc-200 rounded outline-none focus:border-zinc-800 bg-zinc-50/50"
-                                    />
-                                </div>
-
-                                <div className="pt-2">
-                                    <button type="submit" className="w-full py-2 bg-zinc-950 text-white text-xs font-semibold rounded hover:bg-zinc-800 shadow cursor-pointer">
-                                        Save Note & Refresh
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                    </div>
-                </div>
-            )}
-
         </div>
     );
+};
+
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        const dataPoint = payload[0].payload;
+        return (
+            <div className="bg-zinc-950 text-white p-4 rounded-xl border border-zinc-800 shadow-xl text-xs font-sans space-y-2.5 max-w-[240px]">
+                <p className="font-bold text-zinc-300 border-b border-zinc-800 pb-1.5">{dataPoint.dateLabel || label}</p>
+                <div className="space-y-1">
+                    <p className="flex justify-between gap-4"><span className="text-zinc-500">Solved:</span><span className="font-bold text-zinc-100">{dataPoint.problemsSolved} problems</span></p>
+                    <p className="flex justify-between gap-4"><span className="text-zinc-500">Study Duration:</span><span className="font-bold text-zinc-100">{dataPoint.studyTime} mins</span></p>
+                    <p className="flex justify-between gap-4"><span className="text-zinc-500">Focus Sessions:</span><span className="font-bold text-zinc-100">{dataPoint.focusSessions} blocks</span></p>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
+const DifficultyTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-zinc-950 text-white p-3 rounded-lg border border-zinc-800 shadow-xl text-xs font-sans">
+                <p className="font-bold text-zinc-300">{data.name}</p>
+                <p className="mt-1 text-zinc-100">Solved count: <strong>{data.value} problems</strong></p>
+            </div>
+        );
+    }
+    return null;
 };
 
 export default Dashboard;

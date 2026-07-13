@@ -22,11 +22,11 @@ const studySessionSchema = new mongoose.Schema({
     },
     duration: {
         type: Number,
-        required: true // planned duration in minutes
+        required: true
     },
     actualTime: {
         type: Number,
-        default: 0 // actual time studied in minutes
+        default: 0
     },
     startTime: {
         type: Date,
@@ -46,7 +46,6 @@ const studySessionSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Compound index for efficient queries on user sessions over time
 studySessionSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('StudySession', studySessionSchema);

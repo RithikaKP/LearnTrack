@@ -11,6 +11,7 @@ import ProblemTracker from "./pages/ProblemTracker";
 import Notes from "./pages/Notes";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
+import Today from "./pages/Today";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -25,7 +26,8 @@ function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<Navigate to="/today" replace />} />
+                <Route path="/today" element={<Today />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/subjects" element={<Subjects />} />
                 <Route path="/subjects/:id" element={<TopicTracker />} />
